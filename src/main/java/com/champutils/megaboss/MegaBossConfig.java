@@ -44,6 +44,7 @@ public final class MegaBossConfig {
             }
             sanitizeRuntimeDefaults(defaultData);
             DATA.bosses.removeIf(boss -> boss == null || boss.species == null || boss.species.equalsIgnoreCase("rayquaza"));
+            ensureRequiredBossEntries(defaultData);
             save();
         } catch (Exception e) {
             DATA = defaults();
@@ -79,6 +80,24 @@ public final class MegaBossConfig {
         if (DATA.fragmentMax <= 0 && DATA.essenceMax > 0) DATA.fragmentMax = DATA.essenceMax;
         DATA.essenceMin = DATA.fragmentMin;
         DATA.essenceMax = DATA.fragmentMax;
+    }
+
+
+    /**
+     * Restores required split-form bosses that may be absent from older or manually trimmed configs.
+     * Match by both species and Mega aspect so Mega Mewtwo X and Y remain separate entries.
+     */
+    private static void ensureRequiredBossEntries(Data defaultData) {
+        for (BossEntry required : defaultData.bosses) {
+            if (!"mewtwo".equalsIgnoreCase(required.species)) continue;
+            String requiredAspect = required.extraProperties == null ? "" : required.extraProperties.trim().toLowerCase();
+            boolean exists = DATA.bosses.stream().anyMatch(existing ->
+                    existing != null
+                            && "mewtwo".equalsIgnoreCase(existing.species)
+                            && requiredAspect.equals(existing.extraProperties == null ? "" : existing.extraProperties.trim().toLowerCase())
+            );
+            if (!exists) DATA.bosses.add(required);
+        }
     }
 
     private static Data defaults() {
@@ -149,6 +168,12 @@ public final class MegaBossConfig {
         e.ability = ability;
         e.nature = nature;
         e.moves = new ArrayList<>(Arrays.asList(moves));
+        if (species.equalsIgnoreCase("diancie")
+                || species.equalsIgnoreCase("latias")
+                || species.equalsIgnoreCase("latios")
+                || species.equalsIgnoreCase("mewtwo")) {
+            e.spawnWeight = 0.02D;
+        }
         return e;
     }
 
@@ -235,5 +260,7 @@ public final class MegaBossConfig {
         public String ability = "";
         public String nature = "";
         public List<String> moves = new ArrayList<>();
+        /** Relative natural-spawn selection weight. 1.0 is normal; 0.02 is roughly 50x rarer. */
+        public double spawnWeight = 1.0D;
     }
 }

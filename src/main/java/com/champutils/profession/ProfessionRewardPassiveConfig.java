@@ -93,21 +93,38 @@ public class ProfessionRewardPassiveConfig {
 
     private static void ensureBerryFinderTable() {
         if (TABLES == null) return;
-        List<RewardEntry> existing = TABLES.get("farming_berry_finder");
-        if (existing != null && !existing.isEmpty()) return;
-        List<RewardEntry> seedSaver = TABLES.get("farming_seed_saver");
-        if (seedSaver == null || seedSaver.isEmpty()) return;
         List<RewardEntry> berries = new ArrayList<>();
-        for (RewardEntry entry : seedSaver) {
-            if (entry == null || entry.item == null) continue;
-            String item = entry.item.toLowerCase(java.util.Locale.ROOT);
-            if (item.startsWith("cobblemon:") && item.endsWith("_berry")) {
-                berries.add(entry);
-            }
-        }
-        if (!berries.isEmpty()) {
-            TABLES.put("farming_berry_finder", berries);
-        }
+        berries.add(entry("cobblemon:aspear_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:babiri_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:bluk_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:charti_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:cheri_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:chesto_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:chilan_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:chople_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:coba_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:colbur_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:haban_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:kasib_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:kebia_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:nanab_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:occa_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:oran_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:passho_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:payapa_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:pecha_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:persim_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:pinap_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:rawst_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:razz_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:rindo_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:roseli_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:shuca_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:tanga_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:wacan_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:wepear_berry", 1, 2, 3));
+        berries.add(entry("cobblemon:yache_berry", 1, 2, 3));
+        TABLES.put("farming_berry_finder", berries);
     }
 
     private static void filterSeedSaverTable() {
@@ -714,7 +731,7 @@ public class ProfessionRewardPassiveConfig {
                 fragmentGambleEntry(1, 1, 1, 0.04D, 0.0025D)
         ));
 
-        root.tables.put("farming_berry_finder", root.tables.get("farming_seed_saver"));
+        root.tables.put("farming_berry_finder", new ArrayList<>(TABLES.getOrDefault("farming_berry_finder", java.util.List.of())));
 
         root.tables.put("farming_golden_harvest", list(
                 entry("minecraft:golden_carrot", 1, 2, 28),

@@ -2,6 +2,7 @@ package com.champutils.menu;
 
 import com.champutils.matchmaking.MatchmakingManager;
 import com.cobblemon.mod.common.CobblemonItems;
+import com.champutils.rank.SeasonManager;
 
 import eu.pb4.sgui.api.gui.SimpleGui;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
@@ -30,7 +31,8 @@ public class BattleMenu {
                 "§7Ranked is the main progression path.",
                 "§7Queue, earn rewards, and climb.",
                 "§7Ranked queued: §e" + rankedQueued,
-                "§7Casual queued: §e" + casualQueued
+                "§7Casual queued: §e" + casualQueued,
+                "§7Season ends: §f" + SeasonManager.getSeasonEndDisplay()
         );
 
         gui.setSlot(

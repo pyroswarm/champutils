@@ -1,9 +1,6 @@
 package com.champutils.profession;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
-import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
-import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -63,21 +60,10 @@ public class ProfessionActionBarManager {
             return;
         }
 
-        String color = getProfessionColor(type);
-
-        player.connection.send(new ClientboundSetTitlesAnimationPacket(5, 45, 15));
-        player.connection.send(new ClientboundSetTitleTextPacket(
-                Component.literal(color + "§l" + type.name() + " LEVEL UP!")
-        ));
-        player.connection.send(new ClientboundSetSubtitleTextPacket(
-                Component.literal("§fLevel " + level + " §7- bonuses increased")
-        ));
-
-        ProfessionNotificationSettings.playStackingSound(player, 
-                SoundEvents.PLAYER_LEVELUP,
-                SoundSource.PLAYERS,
-                0.9f,
-                1.1f
+        ProfessionSpecialCelebration.celebrateProfessionLevelUp(
+                player,
+                type,
+                level
         );
     }
 

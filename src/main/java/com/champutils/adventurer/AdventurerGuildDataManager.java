@@ -86,7 +86,7 @@ public final class AdventurerGuildDataManager {
     public static PlayerData load(UUID profileId, String name) {
         PlayerData data = null;
 
-        if (profileId != null && DatabaseManager.isEnabled()) {
+        if (profileId != null && DatabaseManager.isEnabled() && !isMinecraftServerThread()) {
             try {
                 if (Thread.currentThread().getName().startsWith("ChampUtils-Database-")) {
                     Connection connection = DatabaseManager.getConnection();
@@ -387,4 +387,10 @@ public final class AdventurerGuildDataManager {
     private static String safe(String value) {
         return value == null ? "" : value;
     }
+
+    private static boolean isMinecraftServerThread() {
+        String name = Thread.currentThread().getName();
+        return name != null && name.equalsIgnoreCase("Server thread");
+    }
+
 }

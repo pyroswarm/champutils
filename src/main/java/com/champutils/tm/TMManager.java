@@ -26,7 +26,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.item.component.CustomModelData;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.util.Unit;
@@ -327,7 +326,9 @@ public final class TMManager {
     }
 
     public static Item iconForMove(String rawMove) {
-        return iconForType(typeForMove(rawMove));
+        // Every actual TM is represented by the same vanilla music-disc icon.
+        // Type-specific materials remain reserved for the shop's type category buttons.
+        return Items.MUSIC_DISC_CAT;
     }
 
     public static int getUsesLeft(ItemStack stack) {
@@ -483,6 +484,47 @@ public final class TMManager {
         return TeachResult.fail("Use /tms teach <partySlot> [replaceMoveSlot] while holding this TM.");
     }
 
+    public static Pokemon findPartyPokemon(ServerPlayer player, UUID pokemonId) {
+        if (player == null || pokemonId == null) return null;
+        PartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
+        if (party == null) return null;
+        for (int i = 0; i < 6; i++) {
+            Pokemon pokemon = party.get(i);
+            if (pokemon != null && pokemonId.equals(pokemon.getUuid())) return pokemon;
+        }
+        return null;
+    }
+
+    public static int findPartySlot(ServerPlayer player, UUID pokemonId) {
+        if (player == null || pokemonId == null) return -1;
+        PartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
+        if (party == null) return -1;
+        for (int i = 0; i < 6; i++) {
+            Pokemon pokemon = party.get(i);
+            if (pokemon != null && pokemonId.equals(pokemon.getUuid())) return i + 1;
+        }
+        return -1;
+    }
+
+    public static boolean pokemonAlreadyKnows(Pokemon pokemon, String moveId) {
+        return alreadyKnows(pokemon, sanitizeMove(moveId));
+    }
+
+    public static boolean pokemonCanLearnTM(Pokemon pokemon, String moveId) {
+        MoveTemplate template = Moves.getByName(sanitizeMove(moveId));
+        return template != null && canLearnAsTM(pokemon, template);
+    }
+
+    public static List<String> pokemonMoveIds(Pokemon pokemon) {
+        return new ArrayList<>(currentMoveIds(pokemon));
+    }
+
+    public static TeachResult teachHeldTMByPokemonId(ServerPlayer player, UUID pokemonId, int replaceSlotOneBased) {
+        int partySlot = findPartySlot(player, pokemonId);
+        if (partySlot < 1) return TeachResult.fail("That Pokémon is no longer in your party.");
+        return teachHeldTM(player, partySlot, replaceSlotOneBased, true);
+    }
+
     private static boolean alreadyKnows(Pokemon pokemon, String moveId) {
         return currentMoveIds(pokemon).contains(moveId);
     }
@@ -526,7 +568,9 @@ public final class TMManager {
         // This component suppresses the vanilla disc tooltip lines like "C418 - cat" and "Minecraft",
         // leaving only the custom TM name/lore above.
         stack.set(DataComponents.HIDE_ADDITIONAL_TOOLTIP, Unit.INSTANCE);
-        stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(Math.abs(moveId.hashCode() % 900000) + 10000));
+        // Do not apply custom model data here. This guarantees the Polymer fallback
+        // renders as an ordinary vanilla music disc even when a resource pack is active.
+        stack.remove(DataComponents.CUSTOM_MODEL_DATA);
     }
 
     private static String displayName(Pokemon pokemon) {
@@ -687,10 +731,23 @@ public final class TMManager {
         @Override
         public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
             ItemStack stack = player.getItemInHand(hand);
-            if (!level.isClientSide && player instanceof ServerPlayer serverPlayer && getMoveId(stack) != null) {
-                serverPlayer.sendSystemMessage(Component.literal("TMs can only be used with /tms teach <partySlot> [replaceMoveSlot].").withStyle(ChatFormatting.YELLOW));
+            if (getMoveId(stack) == null) return InteractionResultHolder.pass(stack);
+            if (level.isClientSide) return InteractionResultHolder.success(stack);
+            if (!(player instanceof ServerPlayer serverPlayer)) return InteractionResultHolder.pass(stack);
+            if (hand != InteractionHand.MAIN_HAND) {
+                serverPlayer.sendSystemMessage(Component.literal("Move the TM to your main hand to use it.").withStyle(ChatFormatting.RED));
+                return InteractionResultHolder.fail(stack);
             }
-            return InteractionResultHolder.fail(stack);
+
+            // Opening an SGUI while the use-item packet is still being processed can replace the
+            // player's active container mid-handler and disconnect/crash the client. Defer the UI
+            // until the current interaction has fully completed.
+            serverPlayer.server.execute(() -> {
+                if (serverPlayer.isRemoved()) return;
+                String heldMove = getMoveId(serverPlayer.getMainHandItem());
+                if (heldMove != null) TMTeachMenu.open(serverPlayer);
+            });
+            return InteractionResultHolder.success(stack);
         }
     }
 }

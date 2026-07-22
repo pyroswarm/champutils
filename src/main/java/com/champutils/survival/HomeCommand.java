@@ -279,9 +279,21 @@ public final class HomeCommand {
     }
 
     private static int maxHomes(ServerPlayer player) {
-        int best = Math.max(3, SurvivalWorldConfig.get().defaultMaxHomes);
-        // Rank/website perks can grant more homes without changing vanilla command permissions.
-        int[] caps = {4, 5, 6, 8, 10, 15, 20};
+        // Rank defaults: Default = 8, VIP = 15, VIP+ = 30.
+        // Check VIP+ first because that group may inherit VIP permissions.
+        int best;
+        if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.rank.vipplus")
+                || com.champutils.permissions.LuckPermsHook.hasAnyGroup(player, "vipplus", "vip+", "vip_plus")) {
+            best = 30;
+        } else if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.rank.vip")
+                || com.champutils.permissions.LuckPermsHook.hasAnyGroup(player, "vip")) {
+            best = 15;
+        } else {
+            best = 8;
+        }
+
+        // Preserve explicit per-player/group overrides for custom staff or future ranks.
+        int[] caps = {4, 5, 6, 8, 10, 15, 20, 30};
         for (int cap : caps) {
             if (com.champutils.permissions.LuckPermsHook.hasPermission(player, "champutils.sethome." + cap)) {
                 best = Math.max(best, cap);

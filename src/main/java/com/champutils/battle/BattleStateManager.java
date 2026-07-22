@@ -1,5 +1,7 @@
 package com.champutils.battle;
 
+import com.cobblemon.mod.common.api.battles.model.PokemonBattle;
+import com.cobblemon.mod.common.battles.BattleRegistry;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.lang.reflect.Method;
@@ -136,23 +138,24 @@ public class BattleStateManager {
     public static boolean looksLikeActiveBattle(
             ServerPlayer player
     ) {
-        Object battle = getBattle(player);
-        if (battle == null) {
-            return false;
-        }
+        if (player == null) return false;
 
-        Boolean ended = readBoolean(battle, "isEnded");
-        if (ended == null) ended = readBoolean(battle, "getEnded");
-        if (ended == null) ended = readBoolean(battle, "isFinished");
-        if (ended == null) ended = readBoolean(battle, "getFinished");
-        if (ended != null) {
-            return !ended;
-        }
+        PokemonBattle registered;
+        try { registered = BattleRegistry.getBattleByParticipatingPlayer(player); }
+        catch (Throwable ignored) { registered = null; }
+        if (registered == null || registered.getEnded() || registered.getActor(player) == null) return false;
 
-        Boolean active = readBoolean(battle, "isActive");
-        if (active == null) active = readBoolean(battle, "getActive");
-        if (active != null) {
-            return active;
+        Object tracked = getBattle(player);
+        if (tracked instanceof PokemonBattle trackedBattle) {
+            try {
+                if (!trackedBattle.getBattleId().equals(registered.getBattleId())) return false;
+            } catch (Throwable ignored) {
+                if (trackedBattle != registered) return false;
+            }
+        } else if (tracked != null) {
+            Boolean ended = readBoolean(tracked, "isEnded");
+            if (ended == null) ended = readBoolean(tracked, "getEnded");
+            if (Boolean.TRUE.equals(ended)) return false;
         }
 
         return true;

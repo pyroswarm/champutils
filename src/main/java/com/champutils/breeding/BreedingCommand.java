@@ -1,6 +1,9 @@
 package com.champutils.breeding;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.api.storage.party.PartyStore;
+import com.cobblemon.mod.common.pokemon.Pokemon;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -34,6 +37,20 @@ public final class BreedingCommand {
                                     }))));
             dispatcher.register(literal("breed").redirect(breedingNode));
             dispatcher.register(literal("eggs").redirect(breedingNode));
+            dispatcher.register(literal("eggsteps").executes(context -> {
+                var player = context.getSource().getPlayerOrException();
+                PartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
+                boolean found = false;
+                player.sendSystemMessage(Component.literal("§d§lEgg Steps"));
+                for (int slot = 0; slot < 6; slot++) {
+                    Pokemon pokemon = party == null ? null : party.get(slot);
+                    if (!BreedingEggData.isEgg(pokemon)) continue;
+                    found = true;
+                    player.sendSystemMessage(Component.literal("§7Slot §f" + (slot + 1) + "§7: §e" + BreedingEggData.remainingSteps(pokemon) + " steps remaining §8(" + BreedingEggData.progressPercent(pokemon) + "%)"));
+                }
+                if (!found) player.sendSystemMessage(Component.literal("§7There are no Eggs in your party."));
+                return 1;
+            }));
         });
     }
 }

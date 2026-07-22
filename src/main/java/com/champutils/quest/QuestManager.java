@@ -34,6 +34,8 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class QuestManager {
 
@@ -42,6 +44,8 @@ public class QuestManager {
     private static final Map<UUID, QuestDataManager.QuestData> CACHE = new ConcurrentHashMap<>();
     private static final Map<UUID, QuestDataManager.GuildQuestData> GUILD_CACHE = new ConcurrentHashMap<>();
     private static final Set<UUID> DIRTY = ConcurrentHashMap.newKeySet();
+    private static final Map<UUID, ConcurrentLinkedQueue<GuildProgressIncrement>> PENDING_GUILD_PROGRESS = new ConcurrentHashMap<>();
+    private static final Map<UUID, AtomicBoolean> GUILD_PROGRESS_IN_FLIGHT = new ConcurrentHashMap<>();
     private static int tickCounter = 0;
 
     public static void load() {
@@ -273,6 +277,28 @@ public class QuestManager {
         }
     }
 
+    public static void recordBreeding(ServerPlayer player, com.cobblemon.mod.common.pokemon.Pokemon pokemon) {
+        if (player == null) return;
+        increment(player, objective -> {
+            String type = safe(objective.objectiveType).toUpperCase(Locale.ROOT);
+            return "BREED_POKEMON".equals(type) || "HATCH_EGG".equals(type);
+        }, 1);
+    }
+
+    public static void recordCaughtPokemon(ServerPlayer player, com.cobblemon.mod.common.pokemon.Pokemon pokemon) {
+        if (player == null || pokemon == null) return;
+        String species = pokemon.getSpecies().getName().toLowerCase(Locale.ROOT);
+        java.util.Set<String> types = new java.util.HashSet<>();
+        pokemon.getTypes().forEach(type -> types.add(type.getName().toLowerCase(Locale.ROOT)));
+        increment(player, objective -> {
+            String kind = safe(objective.objectiveType).toUpperCase(Locale.ROOT);
+            String target = safe(objective.target).toLowerCase(Locale.ROOT);
+            if ("CATCH_POKEMON".equals(kind) || "CATCH_SPECIES".equals(kind)) return targetMatches(target, species);
+            if ("CATCH_TYPE".equals(kind)) return target.equals("any") || types.contains(target);
+            return false;
+        }, 1);
+    }
+
     public static void recordDefeatedPokemonType(ServerPlayer player, String type) {
         if (player == null || type == null || type.isBlank()) return;
         String normalized = type.toLowerCase(Locale.ROOT);
@@ -346,40 +372,82 @@ public class QuestManager {
         GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         if (guild == null || guild.id == null || profileId == null) return;
-        String playerKey = profileId.toString();
-        QuestDataManager.mutateGuildAsync(guild.id, guild.name, data -> {
+
+        PENDING_GUILD_PROGRESS
+                .computeIfAbsent(guild.id, ignored -> new ConcurrentLinkedQueue<>())
+                .add(new GuildProgressIncrement(player, profileId.toString(), matcher, Math.max(1, amount)));
+        drainGuildProgress(guild.id, guild.name);
+    }
+
+    private static void drainGuildProgress(UUID guildId, String guildName) {
+        AtomicBoolean inFlight = GUILD_PROGRESS_IN_FLIGHT.computeIfAbsent(guildId, ignored -> new AtomicBoolean());
+        if (!inFlight.compareAndSet(false, true)) return;
+
+        ConcurrentLinkedQueue<GuildProgressIncrement> queue = PENDING_GUILD_PROGRESS.computeIfAbsent(guildId, ignored -> new ConcurrentLinkedQueue<>());
+        QuestDataManager.mutateGuildAsync(guildId, guildName, data -> {
             String weeklyKey = weeklyPeriodKey();
             if (data.weekly == null || data.weekly.periodKey == null || !data.weekly.periodKey.equals(weeklyKey)) {
-                data.weekly = generateGuildWeeklySet(weeklyKey, guild.id);
+                data.weekly = generateGuildWeeklySet(weeklyKey, guildId);
                 data.claimedWeekly = new HashSet<>();
             }
             if (data.weekly.objectives == null) data.weekly.objectives = new ArrayList<>();
+
             boolean changed = false;
-            for (QuestDataManager.Objective o : data.weekly.objectives) {
-                if (o == null) continue;
-                if (o.requiredPlayers <= 0) o.requiredPlayers = Math.max(1, QuestConfig.SETTINGS.guildWeeklyRequiredPlayers);
-                if (o.completedPlayers == null) o.completedPlayers = new HashSet<>();
-                if (o.playerProgress == null) o.playerProgress = new HashMap<>();
-                if (o.completedPlayers.contains(playerKey) || !matcher.matches(o)) continue;
-                int next = Math.min(o.required, o.playerProgress.getOrDefault(playerKey, 0) + Math.max(1, amount));
-                o.playerProgress.put(playerKey, next);
-                if (next >= o.required) o.completedPlayers.add(playerKey);
-                o.progress = Math.min(o.requiredPlayers, o.completedPlayers.size());
-                changed = true;
+            GuildProgressIncrement increment;
+            while ((increment = queue.poll()) != null) {
+                for (QuestDataManager.Objective o : data.weekly.objectives) {
+                    if (o == null) continue;
+                    if (o.requiredPlayers <= 0) o.requiredPlayers = Math.max(1, QuestConfig.SETTINGS.guildWeeklyRequiredPlayers);
+                    if (o.completedPlayers == null) o.completedPlayers = new HashSet<>();
+                    if (o.playerProgress == null) o.playerProgress = new HashMap<>();
+                    if (!increment.matcher().matches(o)) continue;
+                    int next = Math.min(o.required, o.playerProgress.getOrDefault(increment.playerKey(), 0) + increment.amount());
+                    o.playerProgress.put(increment.playerKey(), next);
+                    changed = true;
+                }
+
+                // A guild contribution is one fully completed quest line, not one completed objective.
+                boolean completedWholeLine = !data.weekly.objectives.isEmpty();
+                for (QuestDataManager.Objective objective : data.weekly.objectives) {
+                    if (objective == null || objective.playerProgress == null ||
+                            objective.playerProgress.getOrDefault(increment.playerKey(), 0) < objective.required) {
+                        completedWholeLine = false;
+                        break;
+                    }
+                }
+                if (data.weekly.completedPlayers == null) data.weekly.completedPlayers = new HashSet<>();
+                if (completedWholeLine && data.weekly.completedPlayers.add(increment.playerKey())) changed = true;
+            }
+
+            int completedLines = data.weekly.completedPlayers == null ? 0 : data.weekly.completedPlayers.size();
+            for (QuestDataManager.Objective objective : data.weekly.objectives) {
+                if (objective == null) continue;
+                objective.requiredPlayers = Math.max(1, QuestConfig.SETTINGS.guildWeeklyRequiredPlayers);
+                objective.progress = Math.min(objective.requiredPlayers, completedLines);
             }
             return new GuildProgressMutation(data, changed, isReady(data.weekly));
-        }).whenComplete((result, error) -> player.server.execute(() -> {
-            if (error != null || result == null) {
-                if (error != null) System.err.println("[ChampUtils] Failed cross-server guild quest update: " + error.getMessage());
-                return;
+        }).whenComplete((result, error) -> {
+            inFlight.set(false);
+            ServerPlayer notifyPlayer = null;
+            if (result != null) {
+                GUILD_CACHE.put(guildId, result.data());
+                if (result.changed()) NetworkEventManager.publishCacheInvalidation("GUILD_QUESTS", guildId);
             }
-            GUILD_CACHE.put(guild.id, result.data());
-            if (!result.changed()) return;
-            NetworkEventManager.publishCacheInvalidation("GUILD_QUESTS", guild.id);
-            QuestTrackerManager.refresh(player);
-            if (result.ready() && !hasClaimedGuildWeekly(player)) notifyReadyGuildWeekly(player);
-        }));
+            GuildProgressIncrement pending = queue.peek();
+            if (pending != null) notifyPlayer = pending.player();
+            if (error != null) System.err.println("[ChampUtils] Failed buffered cross-server guild quest update: " + error.getMessage());
+            if (!queue.isEmpty()) drainGuildProgress(guildId, guildName);
+            if (notifyPlayer != null && result != null && result.ready()) {
+                ServerPlayer finalNotifyPlayer = notifyPlayer;
+                finalNotifyPlayer.server.execute(() -> {
+                    QuestTrackerManager.refresh(finalNotifyPlayer);
+                    if (!hasClaimedGuildWeekly(finalNotifyPlayer)) notifyReadyGuildWeekly(finalNotifyPlayer);
+                });
+            }
+        });
     }
+
+    private record GuildProgressIncrement(ServerPlayer player, String playerKey, ObjectiveMatcher matcher, int amount) {}
 
     private static void notifyReadyGuildWeekly(ServerPlayer player) {
         QuestDataManager.GuildQuestData data = getGuildData(player);
@@ -475,6 +543,7 @@ public class QuestManager {
         List<Component> lore = new ArrayList<>();
         if (rewardCredits > 0) lore.add(Component.literal("§7• §6" + EconomyManager.formatWholeCredits(rewardCredits)));
         lore.add(Component.literal("§7• §e" + guildXpForDifficulty(difficulty) + " Adventurer XP"));
+        lore.add(Component.literal("§7• §a" + QuestConfig.professionXpForDifficulty(difficulty) + " Profession XP"));
         lore.add(Component.literal("§7• §b" + guildMarksForDifficulty(difficulty) + " Adventurer's Marks"));
         lore.add(Component.literal("§7• §6" + contractChunkSummary(difficulty)));
         addCommandRewardLore(lore, commands);
@@ -526,6 +595,7 @@ public class QuestManager {
     private static String contractAnnouncementRewards(QuestConfig.ContractTemplate template) {
         List<String> rewards = new ArrayList<>();
         if (template.rewardCredits > 0) rewards.add(EconomyManager.formatWholeCredits(template.rewardCredits));
+        rewards.add(QuestConfig.professionXpForDifficulty(template.difficulty) + " Profession XP");
         if (template.rewardCommands != null) {
             for (String command : template.rewardCommands) {
                 String friendly = friendlyReward(command);
@@ -570,6 +640,7 @@ public class QuestManager {
             case "e" -> "e";
             case "d" -> "d";
             case "c" -> "c";
+            case "b" -> "b";
             case "a" -> "a";
             case "s" -> "s";
             case "guild" -> "guild";
@@ -659,24 +730,24 @@ public class QuestManager {
 
     private static int guildXpForDifficulty(String difficulty) {
         return switch ((difficulty == null ? "F" : difficulty.trim().toUpperCase(Locale.ROOT))) {
-            case "E" -> 60;
-            case "D" -> 90;
-            case "C" -> 140;
-            case "B" -> 220;
-            case "A" -> 350;
-            case "S" -> 550;
-            default -> 40;
+            case "E" -> 175;
+            case "D" -> 400;
+            case "C" -> 900;
+            case "B" -> 2_000;
+            case "A" -> 4_500;
+            case "S" -> 10_000;
+            default -> 75;
         };
     }
 
     private static int guildMarksForDifficulty(String difficulty) {
         return switch ((difficulty == null ? "F" : difficulty.trim().toUpperCase(Locale.ROOT))) {
-            case "E" -> 2;
-            case "D" -> 3;
-            case "C" -> 4;
-            case "B" -> 6;
-            case "A" -> 9;
-            case "S" -> 14;
+            case "E" -> 3;
+            case "D" -> 6;
+            case "C" -> 12;
+            case "B" -> 24;
+            case "A" -> 48;
+            case "S" -> 90;
             default -> 1;
         };
     }
@@ -801,6 +872,7 @@ public class QuestManager {
         c.progress = 0;
         c.creditCost = Math.max(0, t.creditCost);
         c.rewardCredits = Math.max(0, t.rewardCredits);
+        c.rewardProfessionXp = Math.max(0, t.rewardProfessionXp);
         c.difficulty = t.difficulty == null ? "F" : t.difficulty;
         c.purchasedAtMillis = System.currentTimeMillis();
         c.expiresAtMillis = c.purchasedAtMillis + Math.max(1, t.durationHours) * 60L * 60L * 1000L;
@@ -834,7 +906,10 @@ public class QuestManager {
             AdventurerGuildManager.awardGuildActivity(player, guildXpForDifficulty(c.difficulty), guildMarksForDifficulty(c.difficulty), "contract");
             com.champutils.cosmetic.TitleManager.unlock(player, "contractor");
             ProfessionType profession = parseProfession(c.profession);
-            if (profession != null) ProfessionManager.addXp(player, profession, Math.max(100, c.required / 2));
+            int professionXp = c.rewardProfessionXp > 0
+                    ? c.rewardProfessionXp
+                    : QuestConfig.professionXpForDifficulty(c.difficulty);
+            if (profession != null) ProfessionManager.addXp(player, profession, professionXp);
             markDirty(player);
             savePlayer(player);
             AdventureGuideManager.increment(player, "contract_complete", 1);
@@ -842,6 +917,33 @@ public class QuestManager {
             return true;
         }
         player.sendSystemMessage(Component.literal("No completed contract is ready to claim.").withStyle(ChatFormatting.RED));
+        return false;
+    }
+
+    public static boolean abandonContract(ServerPlayer player, long purchasedAtMillis) {
+        if (player == null) return false;
+        QuestDataManager.QuestData data = getData(player);
+        if (data.contracts == null || data.contracts.isEmpty()) {
+            player.sendSystemMessage(Component.literal("You have no contracts to abandon.").withStyle(ChatFormatting.RED));
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        for (int i = 0; i < data.contracts.size(); i++) {
+            QuestDataManager.Contract c = data.contracts.get(i);
+            if (c == null || c.completed || now >= c.expiresAtMillis || c.purchasedAtMillis != purchasedAtMillis) continue;
+            data.contracts.remove(i);
+            if (QuestTrackerManager.isTracked(data, "contract", c)) {
+                data.trackedKind = null;
+                data.trackedObjectiveId = null;
+                data.trackedContractPurchasedAt = 0L;
+                QuestTrackerManager.remove(player);
+            }
+            markDirty(player);
+            savePlayer(player);
+            player.sendSystemMessage(Component.literal("Contract abandoned. The purchase cost and all progress were lost.").withStyle(ChatFormatting.YELLOW));
+            return true;
+        }
+        player.sendSystemMessage(Component.literal("That contract is no longer active.").withStyle(ChatFormatting.RED));
         return false;
     }
 
@@ -899,6 +1001,35 @@ public class QuestManager {
             if (o.progress < required) return false;
         }
         return true;
+    }
+
+
+    public static long nextDailyResetEpochMillis() {
+        LocalDateTime now = LocalDateTime.now(ZONE);
+        LocalDateTime next = now.toLocalDate().atTime(Math.max(0, Math.min(23, QuestConfig.SETTINGS.dailyResetHour)), Math.max(0, Math.min(59, QuestConfig.SETTINGS.dailyResetMinute)));
+        if (!next.isAfter(now)) next = next.plusDays(1);
+        return next.atZone(ZONE).toInstant().toEpochMilli();
+    }
+
+    public static long nextWeeklyResetEpochMillis() {
+        LocalDateTime now = LocalDateTime.now(ZONE);
+        DayOfWeek resetDay = parseDay(QuestConfig.SETTINGS.weeklyResetDay);
+        LocalDate date = now.toLocalDate();
+        while (date.getDayOfWeek() != resetDay) date = date.plusDays(1);
+        LocalDateTime next = date.atTime(Math.max(0, Math.min(23, QuestConfig.SETTINGS.weeklyResetHour)), Math.max(0, Math.min(59, QuestConfig.SETTINGS.weeklyResetMinute)));
+        if (!next.isAfter(now)) next = next.plusWeeks(1);
+        return next.atZone(ZONE).toInstant().toEpochMilli();
+    }
+
+    public static String resetTimestampText(boolean daily) {
+        long left = Math.max(0L, (daily ? nextDailyResetEpochMillis() : nextWeeklyResetEpochMillis()) - System.currentTimeMillis());
+        long minutes = (left + 59_999L) / 60_000L;
+        long days = minutes / 1440L;
+        long hours = (minutes % 1440L) / 60L;
+        long mins = minutes % 60L;
+        if (days > 0L) return "in " + days + "d " + hours + "h " + mins + "m";
+        if (hours > 0L) return "in " + hours + "h " + mins + "m";
+        return "in " + mins + "m";
     }
 
     public static String dailyPeriodKey() {

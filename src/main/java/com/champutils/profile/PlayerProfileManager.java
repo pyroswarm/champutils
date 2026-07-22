@@ -720,6 +720,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
             cacheProfile(active);
             updateCachedActive(player.getUUID(), active.profileId());
             ProfilePlaytimeManager.warmCacheAsync(active.profileId());
+        com.champutils.rank.RankedTokenManager.loadAsync(player);
             try { com.champutils.cosmetic.TitleManager.preloadAsync(active.profileId()); } catch (Exception ignored) {}
             ProfilePlaytimeManager.recordCurrentSession(player);
             ProfileLobbyManager.leaveLobby(player);
@@ -1267,6 +1268,7 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         updateCachedActive(playerUuid, active.profileId());
         persistActiveProfileAsync(playerUuid, active.profileId(), player.getGameProfile().getName());
         ProfilePlaytimeManager.warmCacheAsync(active.profileId());
+        com.champutils.rank.RankedTokenManager.loadAsync(player);
             try { com.champutils.cosmetic.TitleManager.preloadAsync(active.profileId()); } catch (Exception ignored) {}
         ProfilePlaytimeManager.recordCurrentSession(player);
 
@@ -1384,36 +1386,8 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
 
 
     public static void saveActiveLocation(ServerPlayer player) {
-        if (player == null || !DatabaseManager.isEnabled() || !hasActiveProfile(player)) return;
-        UUID profileId = activeProfileId(player);
-        if (profileId == null || profileId.equals(player.getUUID())) return;
-
-        if (BattleStateManager.isInBattle(player) || BattleStateManager.hasTrackedState(player) || MegaBossBattleListener.isPlayerInMegaBossBattle(player)) {
-            // Never persist the player's temporary battle location as their profile spawn.
-            return;
-        }
-
-        String dimension = player.serverLevel().dimension().location().toString();
-        if (ProfileLobbyManager.PROFILE_LOBBY_DIMENSION.equals(dimension) || isInMainMenu(player)) {
-            return;
-        }
-
-        double x = player.getX();
-        double y = player.getY();
-        double z = player.getZ();
-        float yaw = player.getYRot();
-        float pitch = player.getXRot();
-        saveLocationSnapshotBlocking(
-                player.getGameProfile().getName(),
-                profileId,
-                dimension,
-                x,
-                y,
-                z,
-                yaw,
-                pitch
-        );
-        SAVED_LOCATION_CACHE.put(profileId, new SavedLocationSnapshot(dimension, x, y, z, yaw, pitch, false));
+        // Compatibility entry point: location persistence must never block the Minecraft thread.
+        saveActiveLocationAsync(player);
     }
 
     public static void saveActiveLocationAsync(ServerPlayer player) {
@@ -1438,7 +1412,12 @@ public static java.util.List<String> profileNamesBlocking(ServerPlayer player) {
         float yaw = player.getYRot();
         float pitch = player.getXRot();
         SAVED_LOCATION_CACHE.put(profileId, new SavedLocationSnapshot(dimension, x, y, z, yaw, pitch, false));
-        DatabaseManager.executeAsync("save active profile location", connection -> saveLocationSnapshot(connection, playerName, profileId, dimension, x, y, z, yaw, pitch));
+        DatabaseManager.executeCoalescedRetryAsync(
+                "profile-location:" + profileId,
+                "save active profile location",
+                2,
+                connection -> saveLocationSnapshot(connection, playerName, profileId, dimension, x, y, z, yaw, pitch)
+        );
     }
 
     public static void forceSpawnAtServerSpawnOnNextLoad(UUID playerUuid, UUID profileId) {

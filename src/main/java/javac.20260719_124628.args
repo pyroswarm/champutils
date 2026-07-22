@@ -1,0 +1,4 @@
+-proc:none
+-cp
+/mnt/data/cobblemon-fabric-1.7.3+1.21.1(4).jar
+com/champutils/pokefan/PokefanMenu.java

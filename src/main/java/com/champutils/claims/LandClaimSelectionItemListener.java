@@ -36,6 +36,7 @@ public final class LandClaimSelectionItemListener {
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
             if (world.isClientSide || hand != InteractionHand.MAIN_HAND || !(player instanceof ServerPlayer serverPlayer)) return InteractionResult.PASS;
             if (!isClaimingStick(serverPlayer.getMainHandItem())) return InteractionResult.PASS;
+            if (LandClaimCommand.denyIslanderClaiming(serverPlayer)) return InteractionResult.FAIL;
             long now = System.currentTimeMillis();
             long last = LAST_CLICK.getOrDefault(serverPlayer.getUUID(), 0L);
             if (now - last < 250L) return InteractionResult.FAIL;

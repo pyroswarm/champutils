@@ -315,7 +315,7 @@ public final class PokemonBreedingRules {
         PotentialAbility chosen;
 
         if (parentHidden) {
-            if (!childHidden.isEmpty() && RANDOM.nextDouble() < Math.min(1.0D, 0.60D + BreedingProfessionService.hiddenAbilityBonus(player))) {
+            if (!childHidden.isEmpty() && RANDOM.nextDouble() < Math.min(1.0D, 0.60D + BreedingProfessionService.hiddenAbilityBonus(player, child))) {
                 int hiddenIndex = Math.max(0, breedingParent.getAbility().getIndex());
                 chosen = childHidden.get(Math.min(hiddenIndex, childHidden.size() - 1));
             } else {
@@ -470,7 +470,7 @@ public final class PokemonBreedingRules {
             shiny = RANDOM.nextInt(Math.max(1, config.shinyDenominator)) == 0;
         }
         if (!shiny) {
-            shiny = BreedingProfessionService.rollShinyProfessionBonus(player, Math.max(1, config.shinyDenominator), rolls);
+            shiny = BreedingProfessionService.rollShinyProfessionBonus(player, child, Math.max(1, config.shinyDenominator), rolls);
         }
         child.setShiny(shiny);
     }

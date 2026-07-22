@@ -17,6 +17,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.core.registries.BuiltInRegistries;
 
@@ -64,7 +65,12 @@ public final class IslanderMineProtectionListener {
             if (serverPlayer.hasPermissions(4) && serverPlayer.isCreative()) return InteractionResult.PASS;
 
             ItemStack stack = serverPlayer.getItemInHand(hand);
-            if (stack.getItem() instanceof BlockItem || stack.getItem() instanceof BucketItem) {
+            // Players may place vanilla ladders to safely traverse the shared mine,
+            // but every other block and all buckets remain blocked.
+            if (stack.getItem() instanceof BlockItem) {
+                return stack.is(Items.LADDER) ? InteractionResult.PASS : InteractionResult.FAIL;
+            }
+            if (stack.getItem() instanceof BucketItem) {
                 return InteractionResult.FAIL;
             }
 

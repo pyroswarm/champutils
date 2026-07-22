@@ -54,11 +54,11 @@ public final class WildGymLevelCapManager {
         if (!(entity instanceof PokemonEntity pokemonEntity) || !(entity.level() instanceof ServerLevel level)) return;
         if (!markProcessed(entity.getUUID()) || !shouldCap(pokemonEntity)) return;
 
-        ServerPlayer player = nearestPlayer(level, entity);
-        if (player == null) return;
+        int cap = strictestNearbyCap(level, entity);
+        if (cap <= 0) return;
         Pokemon pokemon = pokemonEntity.getPokemon();
         int before = pokemon.getLevel();
-        WildSpawnCapCommand.applyToWildSpawn(player, pokemon);
+        if (before > cap) pokemon.setLevel(cap);
         if (pokemon.getLevel() != before) entity.addTag("champutils_gym_cap_corrected_on_spawn");
     }
 
@@ -70,8 +70,7 @@ public final class WildGymLevelCapManager {
 
     private static boolean shouldCap(PokemonEntity entity) {
         Pokemon pokemon = entity.getPokemon();
-        if (pokemon == null || !pokemon.isWild() || hasProtectedTag(entity)) return false;
-        return !isSpecialSpecies(normalizeSpecies(pokemon));
+        return pokemon != null && pokemon.isWild() && !hasProtectedTag(entity);
     }
 
     private static boolean hasProtectedTag(Entity entity) {
@@ -174,16 +173,20 @@ public final class WildGymLevelCapManager {
         return "";
     }
 
-    private static ServerPlayer nearestPlayer(ServerLevel level, Entity entity) {
-        ServerPlayer best = null;
-        double bestDistance = 160.0D * 160.0D;
+    private static int strictestNearbyCap(ServerLevel level, Entity entity) {
+        // Wild entities are shared. Using only the nearest player allowed a high-progression player
+        // to create over-cap spawns inside a lower-progression player's area. Enforce the lowest cap
+        // of every nearby active player so the same shared spawn is legal for everyone who can see it.
+        int cap = Integer.MAX_VALUE;
+        boolean found = false;
+        double radiusSquared = 192.0D * 192.0D;
         for (ServerPlayer player : level.players()) {
-            double distance = player.distanceToSqr(entity);
-            if (distance <= bestDistance) {
-                bestDistance = distance;
-                best = player;
-            }
+            if (player.isSpectator() || player.distanceToSqr(entity) > radiusSquared) continue;
+            int playerCap = WildSpawnCapCommand.capFor(player);
+            if (playerCap <= 0) continue;
+            cap = Math.min(cap, playerCap);
+            found = true;
         }
-        return best;
+        return found ? Math.max(1, Math.min(100, cap)) : 0;
     }
 }

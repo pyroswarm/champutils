@@ -230,10 +230,27 @@ public final class MegaBossManager {
 
     private static MegaBossConfig.BossEntry pickBoss() {
         List<MegaBossConfig.BossEntry> valid = new ArrayList<>();
+        double totalWeight = 0.0D;
         for (MegaBossConfig.BossEntry entry : MegaBossConfig.DATA.bosses) {
-            if (entry != null && entry.enabled && entry.species != null && !entry.species.isBlank()) valid.add(entry);
+            if (entry == null || !entry.enabled || entry.species == null || entry.species.isBlank()) continue;
+            double weight = sanitizedSpawnWeight(entry);
+            if (weight <= 0.0D) continue;
+            valid.add(entry);
+            totalWeight += weight;
         }
-        return valid.isEmpty() ? null : valid.get(RANDOM.nextInt(valid.size()));
+        if (valid.isEmpty() || totalWeight <= 0.0D) return null;
+
+        double roll = RANDOM.nextDouble() * totalWeight;
+        for (MegaBossConfig.BossEntry entry : valid) {
+            roll -= sanitizedSpawnWeight(entry);
+            if (roll <= 0.0D) return entry;
+        }
+        return valid.get(valid.size() - 1);
+    }
+
+    private static double sanitizedSpawnWeight(MegaBossConfig.BossEntry entry) {
+        if (entry == null || !Double.isFinite(entry.spawnWeight)) return 0.0D;
+        return Math.max(0.0D, entry.spawnWeight);
     }
 
     private static MegaBossConfig.BossEntry pickBoss(String rarity, boolean fallbackToAnyRarity) {
@@ -572,8 +589,18 @@ public final class MegaBossManager {
             return false;
         });
         for (ServerLevel level : server.getAllLevels()) {
+            java.util.Map<String, Entity> encounterKeys = new java.util.HashMap<>();
             for (Entity entity : level.getAllEntities()) {
                 if (!isMegaBoss(entity)) continue;
+                String key = entity.getType().toString() + "|" + entity.blockPosition().asLong();
+                Entity existing = encounterKeys.putIfAbsent(key, entity);
+                if (existing != null && existing != entity) {
+                    // Defensive duplicate cleanup for command/callback races that can create
+                    // two visually identical bosses at the same location.
+                    entity.discard();
+                    TRACKED.remove(entity.getUUID());
+                    continue;
+                }
                 long expires = expiresAt(entity);
                 if (expires > 0L && now >= expires) {
                     if (isInBattle(entity)) {

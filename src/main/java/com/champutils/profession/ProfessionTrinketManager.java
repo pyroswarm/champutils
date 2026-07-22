@@ -13,8 +13,16 @@ import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Registry;
+import net.minecraft.core.BlockPos;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.BonemealableBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -24,6 +32,7 @@ import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
@@ -42,10 +51,13 @@ import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.InteractionResult;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -59,6 +71,42 @@ public final class ProfessionTrinketManager {
     private static final String[] RARITIES = {"F","E","D","C","B","A","S"};
     private static boolean effectsRegistered = false;
 
+    private static final Map<UUID, GrowthCache> GROWTH_CACHES = new ConcurrentHashMap<>();
+    private static final int GROWTH_SCAN_BLOCKS_PER_PLAYER = 4096;
+    private static final int GROWTH_CACHE_VALIDATIONS_PER_PLAYER = 256;
+    private static final int MAX_GROWTH_ATTEMPTS_PER_PLAYER_PER_SECOND = 2048;
+    private static final double NATURAL_RANDOM_TICKS_PER_BLOCK_PER_SECOND = 60.0D / 4096.0D;
+
+    private static final class GrowthCache {
+        private ResourceLocation dimension;
+        private BlockPos center;
+        private int radius;
+        private int minY;
+        private int maxY;
+        private int scanX;
+        private int scanY;
+        private int scanZ;
+        private int validationCursor;
+        private double bonusAccumulator;
+        private final List<Long> targets = new ArrayList<>();
+        private final Set<Long> targetSet = new HashSet<>();
+
+        private void reset(ResourceLocation dimension, BlockPos center, int radius, int minY, int maxY) {
+            this.dimension = dimension;
+            this.center = center.immutable();
+            this.radius = radius;
+            this.minY = minY;
+            this.maxY = maxY;
+            this.scanX = -radius;
+            this.scanY = minY;
+            this.scanZ = -radius;
+            this.validationCursor = 0;
+            this.bonusAccumulator = 0.0D;
+            this.targets.clear();
+            this.targetSet.clear();
+        }
+    }
+
     private ProfessionTrinketManager() {}
 
     public static void registerItems() {
@@ -71,6 +119,10 @@ public final class ProfessionTrinketManager {
             registerTrinket(rarity, "level_charm", Items.NETHER_STAR);
             registerTrinket(rarity, "rare_pokemon_charm", Items.PRISMARINE_CRYSTALS);
             registerTrinket(rarity, "chunky_brick", Items.BRICK);
+            registerTrinket(rarity, "totem_of_growth", Items.MOSS_BLOCK);
+            registerTrinket(rarity, "poke_snax", Items.COOKIE);
+            registerTrinket(rarity, "seed_pouch", Items.WHEAT_SEEDS);
+            registerTrinket(rarity, "incubator", Items.TURTLE_EGG);
             registerPouch(rarity, Items.ENDER_CHEST);
         }
         System.out.println("[ChampUtils] Registered " + REGISTERED.size() + " profession trinket items.");
@@ -95,7 +147,13 @@ public final class ProfessionTrinketManager {
     public static void registerEffects() {
         if (effectsRegistered) return;
         effectsRegistered = true;
-        ServerTickEvents.END_SERVER_TICK.register(server -> server.getPlayerList().getPlayers().forEach(ProfessionTrinketManager::applyMagnet));
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            long tick = server.getTickCount();
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                applyMagnet(player);
+            }
+            if (tick % 20L == 0L) applyGrowthTotems(server);
+        });
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(Commands.literal("tpouch")
                     .executes(context -> {
@@ -107,6 +165,21 @@ public final class ProfessionTrinketManager {
                         openDigitalPouch(context.getSource().getPlayerOrException());
                         return 1;
                     }));
+        });
+        UseBlockCallback.EVENT.register((rawPlayer, world, hand, hit) -> {
+            if (!(rawPlayer instanceof ServerPlayer player) || world.isClientSide() || hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS;
+            ItemStack used = player.getItemInHand(hand);
+            if (used.isEmpty() || used.is(ItemTags.SAPLINGS)) return InteractionResult.PASS;
+            ItemStack pouch = bestActiveTrinket(player, "seed_pouch");
+            if (pouch.isEmpty()) return InteractionResult.PASS;
+            ResourceLocation usedId = BuiltInRegistries.ITEM.getKey(used.getItem());
+            if (!isSeedOrBerryItem(used, usedId)) return InteractionResult.PASS;
+            String itemId = usedId.toString();
+            BlockPos planted = hit.getBlockPos().relative(hit.getDirection());
+            int extra = Math.max(0, ProfessionTrinketConfig.tier(rarity(pouch)).seedPouchExtraPlacements);
+            if (extra <= 0) return InteractionResult.PASS;
+            player.server.execute(() -> spreadPlantedSeed(player, itemId, planted, extra));
+            return InteractionResult.PASS;
         });
         CobblemonEvents.FRIENDSHIP_UPDATED.subscribe(event -> {
             try {
@@ -128,6 +201,254 @@ public final class ProfessionTrinketManager {
         });
     }
 
+
+
+    private static void applyGrowthTotems(MinecraftServer server) {
+        List<ServerPlayer> players = server.getPlayerList().getPlayers();
+        Set<UUID> activePlayers = new HashSet<>();
+        Set<String> processedTargets = new HashSet<>();
+
+        for (ServerPlayer player : players) {
+            ItemStack trinket = bestActiveTrinket(player, "totem_of_growth");
+            if (trinket.isEmpty()) continue;
+
+            ProfessionTrinketConfig.Tier tier = ProfessionTrinketConfig.tier(rarity(trinket));
+            int radius = Math.max(1, tier.growthRadiusBlocks);
+            double bonus = Math.max(0.0D, tier.growthSpeedBonusPercent) / 100.0D;
+            if (bonus <= 0.0D) continue;
+
+            activePlayers.add(player.getUUID());
+            ServerLevel level = player.serverLevel();
+            BlockPos origin = player.blockPosition();
+            ResourceLocation dimension = level.dimension().location();
+            int minY = Math.max(level.getMinBuildHeight(), origin.getY() - 8);
+            int maxY = Math.min(level.getMaxBuildHeight() - 1, origin.getY() + 8);
+
+            GrowthCache cache = GROWTH_CACHES.computeIfAbsent(player.getUUID(), ignored -> new GrowthCache());
+            if (shouldResetGrowthCache(cache, dimension, origin, radius, minY, maxY)) {
+                cache.reset(dimension, origin, radius, minY, maxY);
+            }
+
+            scanGrowthTargets(level, cache, GROWTH_SCAN_BLOCKS_PER_PLAYER);
+            validateGrowthTargets(level, cache, GROWTH_CACHE_VALIDATIONS_PER_PLAYER);
+            applyCachedGrowth(level, cache, bonus, processedTargets);
+        }
+
+        GROWTH_CACHES.keySet().removeIf(uuid -> !activePlayers.contains(uuid));
+    }
+
+    private static boolean shouldResetGrowthCache(GrowthCache cache, ResourceLocation dimension, BlockPos origin,
+                                                  int radius, int minY, int maxY) {
+        if (cache.dimension == null || cache.center == null) return true;
+        if (!cache.dimension.equals(dimension) || cache.radius != radius) return true;
+        int movementTolerance = Math.max(8, Math.min(24, radius / 4));
+        return cache.center.distSqr(origin) > (double) movementTolerance * movementTolerance;
+    }
+
+    private static void scanGrowthTargets(ServerLevel level, GrowthCache cache, int budget) {
+        for (int checked = 0; checked < budget; checked++) {
+            int dx = cache.scanX;
+            int dz = cache.scanZ;
+            int y = cache.scanY;
+            advanceGrowthScan(cache);
+
+            if ((dx * dx) + (dz * dz) > cache.radius * cache.radius) continue;
+            BlockPos pos = new BlockPos(cache.center.getX() + dx, y, cache.center.getZ() + dz);
+            if (!level.hasChunkAt(pos)) continue;
+
+            BlockState state = level.getBlockState(pos);
+            if (!isActiveGrowthTarget(state)) continue;
+            long packed = pos.asLong();
+            if (cache.targetSet.add(packed)) cache.targets.add(packed);
+        }
+    }
+
+    private static void advanceGrowthScan(GrowthCache cache) {
+        cache.scanY++;
+        if (cache.scanY <= cache.maxY) return;
+        cache.scanY = cache.minY;
+        cache.scanZ++;
+        if (cache.scanZ <= cache.radius) return;
+        cache.scanZ = -cache.radius;
+        cache.scanX++;
+        if (cache.scanX <= cache.radius) return;
+        cache.scanX = -cache.radius;
+    }
+
+    private static void validateGrowthTargets(ServerLevel level, GrowthCache cache, int budget) {
+        int checked = 0;
+        while (checked < budget && !cache.targets.isEmpty()) {
+            if (cache.validationCursor >= cache.targets.size()) cache.validationCursor = 0;
+            long packed = cache.targets.get(cache.validationCursor);
+            BlockPos pos = BlockPos.of(packed);
+            boolean valid = level.hasChunkAt(pos) && isActiveGrowthTarget(level.getBlockState(pos));
+            if (!valid) {
+                cache.targets.remove(cache.validationCursor);
+                cache.targetSet.remove(packed);
+            } else {
+                cache.validationCursor++;
+            }
+            checked++;
+        }
+    }
+
+    private static void applyCachedGrowth(ServerLevel level, GrowthCache cache, double bonus, Set<String> processedTargets) {
+        if (cache.targets.isEmpty()) return;
+
+        // High-tier totems should feel dramatically faster, not merely add a small fraction of vanilla random ticks.
+        // Preserve the configured percentage as the baseline, then scale the number of bonus random-tick attempts
+        // non-linearly so A/S tiers accelerate large farms in a noticeable way.
+        double effectiveBonus = bonus * (1.0D + (bonus * 9.0D));
+        cache.bonusAccumulator += cache.targets.size() * NATURAL_RANDOM_TICKS_PER_BLOCK_PER_SECOND * effectiveBonus;
+        cache.bonusAccumulator = Math.min(cache.bonusAccumulator, MAX_GROWTH_ATTEMPTS_PER_PLAYER_PER_SECOND * 2.0D);
+        int attempts = Math.min(MAX_GROWTH_ATTEMPTS_PER_PLAYER_PER_SECOND, (int)Math.floor(cache.bonusAccumulator));
+        if (attempts <= 0) return;
+
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        int tries = 0;
+        int applied = 0;
+        int maxTries = Math.max(attempts * 4, attempts + 16);
+        while (applied < attempts && tries++ < maxTries && !cache.targets.isEmpty()) {
+            int index = random.nextInt(cache.targets.size());
+            long packed = cache.targets.get(index);
+            BlockPos pos = BlockPos.of(packed);
+            String targetKey = level.dimension().location() + ":" + packed;
+            if (!processedTargets.add(targetKey)) continue;
+
+            if (!level.hasChunkAt(pos)) continue;
+            BlockState state = level.getBlockState(pos);
+            if (!isActiveGrowthTarget(state)) {
+                cache.targets.remove(index);
+                cache.targetSet.remove(packed);
+                if (cache.validationCursor > index) cache.validationCursor--;
+                continue;
+            }
+
+            state.randomTick(level, pos, level.random);
+            applied++;
+        }
+        cache.bonusAccumulator = Math.max(0.0D, cache.bonusAccumulator - applied);
+    }
+
+    private static boolean isActiveGrowthTarget(BlockState state) {
+        return isGrowthTarget(state) && state.isRandomlyTicking();
+    }
+
+    private static boolean isGrowthTarget(BlockState state) {
+        if (state == null || state.isAir()) return false;
+
+        // Cover every normal growable that exposes Minecraft's growth contract, including
+        // crops, saplings, bamboo, mushrooms, azaleas, flowers and compatible modded plants.
+        if (state.getBlock() instanceof BonemealableBlock) return true;
+        if (state.is(BlockTags.CROPS) || state.is(BlockTags.SAPLINGS)) return true;
+
+        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+        if (id == null) return false;
+        String namespace = id.getNamespace().toLowerCase(Locale.ROOT);
+        String path = id.getPath().toLowerCase(Locale.ROOT);
+
+        // Random-tick growers that are not BonemealableBlock implementations.
+        if (namespace.equals("minecraft")) {
+            return path.equals("sugar_cane")
+                    || path.equals("cactus")
+                    || path.equals("nether_wart")
+                    || path.equals("cocoa")
+                    || path.equals("sweet_berry_bush")
+                    || path.equals("chorus_flower")
+                    || path.equals("bamboo")
+                    || path.equals("bamboo_sapling")
+                    || path.equals("kelp")
+                    || path.equals("kelp_plant")
+                    || path.equals("weeping_vines")
+                    || path.equals("weeping_vines_plant")
+                    || path.equals("twisting_vines")
+                    || path.equals("twisting_vines_plant")
+                    || path.equals("cave_vines")
+                    || path.equals("cave_vines_plant")
+                    || path.endsWith("_stem")
+                    || path.endsWith("_sapling");
+        }
+
+        // Cobblemon's berries, apricorns, mints and other plant blocks use custom growth
+        // implementations. Accept all random-ticking Cobblemon plant-like blocks rather than
+        // maintaining a fragile berry/mint-only allow-list.
+        if (namespace.equals("cobblemon")) {
+            return path.contains("berry")
+                    || path.contains("apricorn")
+                    || path.contains("mint")
+                    || path.contains("seed")
+                    || path.contains("sprout")
+                    || path.contains("sapling")
+                    || path.contains("plant")
+                    || path.contains("crop")
+                    || path.contains("vivichoke")
+                    || path.contains("leek")
+                    || path.contains("flower")
+                    || path.contains("herb");
+        }
+
+        return false;
+    }
+
+    private static boolean isSeedOrBerryItem(ItemStack stack, ResourceLocation id) {
+        if (stack == null || stack.isEmpty() || id == null) return false;
+        if (stack.is(Items.WHEAT_SEEDS) || stack.is(Items.BEETROOT_SEEDS)
+                || stack.is(Items.MELON_SEEDS) || stack.is(Items.PUMPKIN_SEEDS)) return true;
+        String path = id.getPath().toLowerCase(Locale.ROOT);
+        if (id.getNamespace().equals("cobblemon")) {
+            return path.endsWith("_berry") || path.endsWith("_seed") || path.endsWith("_seeds");
+        }
+        return false;
+    }
+
+    private static void spreadPlantedSeed(ServerPlayer player, String itemId, BlockPos sourcePos, int maxExtra) {
+        if (player == null || player.hasDisconnected() || maxExtra <= 0) return;
+        ServerLevel level = player.serverLevel();
+        BlockState plantedState = level.getBlockState(sourcePos);
+        if (plantedState.isAir() || plantedState.is(BlockTags.SAPLINGS) || !isGrowthTarget(plantedState)) return;
+        ResourceLocation plantedId = BuiltInRegistries.BLOCK.getKey(plantedState.getBlock());
+        if (plantedId == null) return;
+        int placed = 0;
+        int radius = Math.min(8, 2 + (int)Math.ceil(Math.sqrt(maxExtra)));
+        for (int r = 1; r <= radius && placed < maxExtra; r++) {
+            for (int dx = -r; dx <= r && placed < maxExtra; dx++) for (int dz = -r; dz <= r && placed < maxExtra; dz++) {
+                if (Math.max(Math.abs(dx), Math.abs(dz)) != r) continue;
+                BlockPos target = sourcePos.offset(dx, 0, dz);
+                if (!level.hasChunkAt(target) || !level.getBlockState(target).isAir()) continue;
+                BlockPos soil = target.below();
+                BlockState soilState = level.getBlockState(soil);
+                if (!soilState.is(Blocks.FARMLAND) && !plantedId.getNamespace().equals("cobblemon")) continue;
+                if (!canAutoPlant(player, target)) continue;
+                if (!consumePlantingItem(player, itemId)) return;
+                level.setBlock(target, plantedState, 3);
+                placed++;
+            }
+        }
+    }
+
+    private static boolean canAutoPlant(ServerPlayer player, BlockPos pos) {
+        try {
+            com.champutils.claims.LandClaimRepository.Claim claim = com.champutils.claims.LandClaimRepository.findAt(player.serverLevel(), pos);
+            if (claim != null && !com.champutils.claims.LandClaimRepository.canBuild(player, claim)) return false;
+            com.champutils.territory.TerritoryRepository.Territory territory = com.champutils.territory.TerritoryRepository.findAt(player.serverLevel(), pos);
+            return territory == null || com.champutils.territory.TerritoryRepository.canBuild(player, territory);
+        } catch (Throwable ignored) { return false; }
+    }
+
+    private static boolean consumePlantingItem(ServerPlayer player, String itemId) {
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack stack = player.getInventory().getItem(i);
+            if (!stack.isEmpty() && BuiltInRegistries.ITEM.getKey(stack.getItem()).toString().equals(itemId)) {
+                stack.shrink(1); return true;
+            }
+        }
+        return ProfessionBackpackManager.remove(player, itemId, 1);
+    }
+
+    public static double incubatorCooldownMultiplier(ServerPlayer player) {
+        double reduction = tierValue(player, "incubator", tier -> tier.incubatorCooldownReductionPercent) / 100.0D;
+        return Math.max(0.0D, 1.0D - Math.min(0.95D, reduction));
+    }
 
     public static ItemStack migrateStack(ItemStack original) {
         if (original == null || original.isEmpty()) return original;
@@ -265,8 +586,11 @@ public final class ProfessionTrinketManager {
     }
 
     public static boolean rollDoubleProfessionXp(ServerPlayer player) {
-        double chance = tierValue(player, "profession_xp_gem", tier -> tier.professionXpDoubleChancePercent);
-        return chance > 0.0D && ThreadLocalRandom.current().nextDouble(100.0D) < chance;
+        return false; // Retained for binary/source compatibility; XP Gems now provide a guaranteed multiplier.
+    }
+
+    public static double professionXpGemBonus(ServerPlayer player) {
+        return Math.max(0.0D, tierValue(player, "profession_xp_gem", tier -> tier.professionXpDoubleChancePercent) / 100.0D);
     }
 
     public static double pokemonXpBonus(ServerPlayer player) {
@@ -287,6 +611,10 @@ public final class ProfessionTrinketManager {
 
     public static double chunkChanceBonus(ServerPlayer player) {
         return tierValue(player, "chunky_brick", tier -> tier.chunkChanceBonusPercent) / 100.0D;
+    }
+
+    public static double hungerReduction(ServerPlayer player) {
+        return Math.min(1.0D, tierValue(player, "poke_snax", tier -> tier.hungerReductionPercent) / 100.0D);
     }
 
     private static final double MAX_SHINY_CHARM_EXTRA_PERCENT = 0.025D; // hard cap: Mythic charm cannot push base 1/8192 past ~1/2689 by itself
@@ -825,6 +1153,10 @@ public final class ProfessionTrinketManager {
         if (s.equals("levelcharm")) return "level_charm";
         if (s.equals("rarepokemoncharm") || s.equals("rare_charm")) return "rare_pokemon_charm";
         if (s.equals("chunkybrick") || s.equals("chunk_brick")) return "chunky_brick";
+        if (s.equals("totemofgrowth") || s.equals("growth_totem") || s.equals("growthtotem")) return "totem_of_growth";
+        if (s.equals("pokesnax") || s.equals("poke_snacks") || s.equals("pokesnacks")) return "poke_snax";
+        if (s.equals("seedpouch") || s.equals("seed_bag")) return "seed_pouch";
+        if (s.equals("egg_incubator")) return "incubator";
         return s;
     }
 
@@ -832,14 +1164,18 @@ public final class ProfessionTrinketManager {
         List<Component> lore = new ArrayList<>();
         ProfessionTrinketConfig.Tier tier = ProfessionTrinketConfig.tier(rarity);
         lore.add(Component.literal(enabled ? "§aToggled ON" : "§cToggled OFF"));
-        if ("magnet".equals(type)) lore.add(Component.literal("§7Pickup Radius: §a+" + String.format(Locale.US, "%.0f", tier.magnetRadiusBonus) + " blocks"));
-        if ("shiny_charm".equals(type)) lore.add(Component.literal("§7Catch/Spawn Shiny Bonus: §d" + String.format(Locale.US, "%.4f", tier.shinyChancePercent) + "%"));
-        if ("profession_xp_gem".equals(type)) lore.add(Component.literal("§7Double Profession XP Chance: §a" + fmt(tier.professionXpDoubleChancePercent) + "%"));
+        if ("magnet".equals(type)) lore.add(Component.literal("§7Eligible Item Pickup Radius: §a+" + String.format(Locale.US, "%.0f", tier.magnetRadiusBonus) + " blocks"));
+        if ("shiny_charm".equals(type)) lore.add(Component.literal("§7Extra Catch/Wild Spawn Shiny Chance: §d+" + String.format(Locale.US, "%.4f", tier.shinyChancePercent) + "%"));
+        if ("profession_xp_gem".equals(type)) lore.add(Component.literal("§7Profession XP Earned: §a+" + fmt(tier.professionXpDoubleChancePercent) + "%"));
         if ("pokemon_xp_egg".equals(type)) lore.add(Component.literal("§7Pokémon Battle XP: §b+" + fmt(tier.pokemonXpBonusPercent) + "%"));
         if ("friendship_charm".equals(type)) lore.add(Component.literal("§7Friendship Gain: §d+" + fmt(tier.friendshipBonusPercent) + "%"));
-        if ("level_charm".equals(type)) lore.add(Component.literal("§7Nearby Spawn Min Level: §e" + fmt(tier.levelCharmGymCapPercent) + "% of gym cap"));
-        if ("rare_pokemon_charm".equals(type)) lore.add(Component.literal("§7Rare Non-Special Spawn Weight: §6+" + fmt(tier.rarePokemonSpawnBonusPercent) + "%"));
-        if ("chunky_brick".equals(type)) lore.add(Component.literal("§7Chunk Odds Multiplier: §6+" + fmt(tier.chunkChanceBonusPercent) + "%"));
+        if ("level_charm".equals(type)) lore.add(Component.literal("§7Nearby Wild Spawn Minimum: §e" + fmt(tier.levelCharmGymCapPercent) + "% of gym cap"));
+        if ("rare_pokemon_charm".equals(type)) lore.add(Component.literal("§7Relative Rare Non-Special Spawn Weight: §6+" + fmt(tier.rarePokemonSpawnBonusPercent) + "%"));
+        if ("chunky_brick".equals(type)) lore.add(Component.literal("§7Relative Profession Chunk Odds: §6+" + fmt(tier.chunkChanceBonusPercent) + "%"));
+        if ("totem_of_growth".equals(type)) { lore.add(Component.literal("§7Growth Radius: §a" + tier.growthRadiusBlocks + " blocks")); lore.add(Component.literal("§7Crop/Berry/Apricorn Growth: §a+" + fmt(tier.growthSpeedBonusPercent) + "%")); }
+        if ("poke_snax".equals(type)) lore.add(Component.literal(tier.hungerReductionPercent >= 100.0D ? "§7Hunger Drain: §aDisabled" : "§7Hunger Drain: §a-" + fmt(tier.hungerReductionPercent) + "%"));
+        if ("seed_pouch".equals(type)) lore.add(Component.literal("§7Extra Matching Seed/Berry/Mint Placements: §aUp to " + tier.seedPouchExtraPlacements));
+        if ("incubator".equals(type)) lore.add(Component.literal("§7Cooldown After Profession Bonuses: §a-" + fmt(tier.incubatorCooldownReductionPercent) + "%"));
         lore.add(Component.literal("§7Right-click while holding to toggle."));
         lore.add(Component.literal("§7Store in /tpouch or /trinketpouch."));
         lore.add(Component.literal("§8Duplicate types do not stack; highest tier is used."));
@@ -858,6 +1194,10 @@ public final class ProfessionTrinketManager {
             case "level_charm" -> 9970;
             case "rare_pokemon_charm" -> 9980;
             case "chunky_brick" -> 9990;
+            case "totem_of_growth" -> 10000;
+            case "poke_snax" -> 10010;
+            case "seed_pouch" -> 10020;
+            case "incubator" -> 10030;
             default -> 9900;
         };
         return base + tier(rarity);

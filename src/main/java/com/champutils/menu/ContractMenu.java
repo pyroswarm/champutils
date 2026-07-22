@@ -14,6 +14,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Items;
 import java.util.List;
+import java.util.Locale;
 
 public final class ContractMenu {
     private ContractMenu() {}
@@ -61,8 +62,13 @@ public final class ContractMenu {
                     .addLoreLine(Component.literal("§7Time left: §f" + QuestManager.timeLeftText(c)))
                     .addLoreLine(Component.literal("§6Rewards:"));
             addLore(item, QuestManager.contractRewardLore(c.rewardCommands, c.rewardCredits, c.difficulty));
-            item.addLoreLine(Component.literal(QuestTrackerManager.isTracked(data, "contract", c) ? "§aTracked" : (done ? "§eClick to claim" : "§eClick to track")));
-            item.setCallback((index, click, action) -> { if (done) QuestManager.completeContract(player); else QuestTrackerManager.toggle(player, "contract", c); open(player); });
+            item.addLoreLine(Component.literal(QuestTrackerManager.isTracked(data, "contract", c) ? "§aTracked" : (done ? "§eLeft click to claim" : "§eLeft click to track")));
+            item.addLoreLine(Component.literal("§cRight click to abandon"));
+            item.addLoreLine(Component.literal("§7No refund; all progress is lost."));
+            item.setCallback((index, click, action) -> {
+                if (isRightClick(click)) openAbandonConfirm(player, c);
+                else { if (done) QuestManager.completeContract(player); else QuestTrackerManager.toggle(player, "contract", c); open(player); }
+            });
             gui.setSlot(slots[offset++], item);
         }
     }
@@ -98,6 +104,35 @@ public final class ContractMenu {
             item.setCallback((index, click, action) -> { QuestManager.buyContract(player, c.id); open(player); });
             gui.setSlot(slots[i], item);
         }
+    }
+
+    private static void openAbandonConfirm(ServerPlayer player, QuestDataManager.Contract contract) {
+        if (player == null || contract == null) return;
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
+        gui.setTitle(Component.literal("Abandon Contract?"));
+        gui.setSlot(4, new GuiElementBuilder(Items.PAPER).hideDefaultTooltip()
+                .setName(Component.literal("§e" + contract.description))
+                .addLoreLine(Component.literal("§7Progress: §f" + Math.min(contract.progress, contract.required) + "§7/§f" + contract.required))
+                .addLoreLine(Component.literal("§cThe purchase cost will not be refunded."))
+                .addLoreLine(Component.literal("§cAll current progress will be lost.")));
+        gui.setSlot(11, new GuiElementBuilder(Items.BARRIER).hideDefaultTooltip()
+                .setName(Component.literal("§cAbandon Contract"))
+                .addLoreLine(Component.literal("§7Permanently remove this contract."))
+                .addLoreLine(Component.literal("§eClick to confirm"))
+                .setCallback((slot, click, action) -> {
+                    QuestManager.abandonContract(player, contract.purchasedAtMillis);
+                    open(player);
+                }));
+        gui.setSlot(15, new GuiElementBuilder(Items.ARROW).hideDefaultTooltip()
+                .setName(Component.literal("§aKeep Contract"))
+                .addLoreLine(Component.literal("§7Return without losing progress."))
+                .setCallback((slot, click, action) -> open(player)));
+        gui.open();
+    }
+
+    private static boolean isRightClick(Object clickType) {
+        String text = String.valueOf(clickType).toLowerCase(Locale.ROOT);
+        return text.contains("right") || text.equals("1");
     }
 
     private static void addLore(GuiElementBuilder builder, List<Component> lore) {

@@ -136,7 +136,7 @@ public final class ChampCraftingConfig {
         String value = raw.trim().toLowerCase(Locale.ROOT);
         if (value.isBlank()) return "";
         if (!value.contains(":")) value = "genesisforms:" + value;
-        return value;
+        return migrateBottleCapId(value);
     }
 
     public static String formatName(String itemId) {
@@ -192,6 +192,9 @@ public final class ChampCraftingConfig {
             for (CostData cost : recipe.costs) {
                 if (cost == null || cost.item == null || cost.item.isBlank() || cost.amount <= 0L) continue;
                 cost.item = normalizeCostItem(cost.item);
+                // Pumpkin and melon seeds are intentionally forbidden from every /crafting recipe,
+                // including recipes already present in an administrator's existing config.
+                if (cost.item.equals("minecraft:pumpkin_seeds") || cost.item.equals("minecraft:melon_seeds")) continue;
                 cost.source = normalizeSource(cost.source);
                 String key = cost.source + "|" + cost.item;
                 CostData existing = fixedCosts.get(key);
@@ -279,12 +282,14 @@ public final class ChampCraftingConfig {
         String[] ids = new String[] {
                 "minecraft:enchanted_golden_apple",
                 "minecraft:trial_key",
+                "minecraft:ominous_trial_key",
                 "cobblemon:ability_patch",
                 "cobblemon:ability_capsule",
                 "cobblemon:master_ball",
                 "cobblemon:rare_candy",
                 "cobblemon:auspicious_armor",
                 "cobblemon:malicious_armor",
+                "cobblemon:oval_stone",
                 "cobblemon:bug_gem",
                 "cobblemon:dark_gem",
                 "cobblemon:dragon_gem",
@@ -303,14 +308,13 @@ public final class ChampCraftingConfig {
                 "cobblemon:rock_gem",
                 "cobblemon:steel_gem",
                 "cobblemon:water_gem",
-                "bottlecaps:silver_bottle_cap",
-                "bottlecaps:silver_bottle_cap_attack",
-                "bottlecaps:silver_bottle_cap_defence",
-                "bottlecaps:silver_bottle_cap_hp",
-                "bottlecaps:silver_bottle_cap_special_attack",
-                "bottlecaps:silver_bottle_cap_special_defence",
-                "bottlecaps:silver_bottle_cap_speed",
-                "bottlecaps:golden_bottle_cap"
+                "champutils:silver_bottle_cap_atk",
+                "champutils:silver_bottle_cap_def",
+                "champutils:silver_bottle_cap_hp",
+                "champutils:silver_bottle_cap_sp_atk",
+                "champutils:silver_bottle_cap_sp_def",
+                "champutils:silver_bottle_cap_speed",
+                "champutils:golden_bottle_cap"
         };
         for (String id : ids) {
             id = normalizeOutputId(id);
@@ -343,19 +347,20 @@ public final class ChampCraftingConfig {
         recipe.lore = new ArrayList<>();
         recipe.lore.add("§7Crafted with profile backpack materials.");
         recipe.lore.add("§8Costs are premium, but balanced for the current economy.");
-        if (path.contains("bottle_cap")) recipe.lore.add("§8If your BottleCaps mod uses a different namespace, edit this recipe ID/outputItem.");
+        if (path.contains("bottle_cap")) recipe.lore.add("§8Provided directly by ChampUtils; no BottleCaps datapack is required.");
         return recipe;
     }
 
     public static String defaultCategory(String itemId) {
         String id = normalizeOutputId(itemId);
         String path = path(id).toLowerCase(Locale.ROOT);
-        if (path.equals("trial_key")) return "Keys";
+        if (path.equals("trial_key") || path.equals("ominous_trial_key")) return "Keys";
         if (id.startsWith("minecraft:")) return "Rare Vanilla";
         if (path.contains("bottle_cap")) return "Hyper Training";
         if (path.contains("ability_patch") || path.contains("ability_capsule")) return "Ability Items";
         if (path.equals("master_ball") || path.endsWith("_ball")) return "Poké Balls";
         if (path.equals("rare_candy") || path.contains("candy")) return "Candies";
+        if (path.equals("oval_stone")) return "Evolution Items";
         if (path.endsWith("_gem")) return "Type Gems";
         if (isOfficialMegaStone(path)) return "Mega Stones";
         if (path.equals("key_stone") || path.startsWith("mega_") || path.equals("sparkling_stone") || path.equals("z_ring") || path.equals("z_power_ring") || path.equals("tera_orb")) return "Key Items";
@@ -367,7 +372,7 @@ public final class ChampCraftingConfig {
         if (path.endsWith("_mask")) return "Masks";
         if (path.contains("orb") || path.contains("crystal") || path.equals("berserk_gene") || path.equals("soul_dew")) return "Orbs & Crystals";
         if (path.contains("rotom")) return "Rotom Items";
-        return id.startsWith("genesisforms:") ? "Genesis Form Items" : GenesisShopConfig.defaultCategory(id, formatName(id));
+        return id.startsWith("genesisforms:") ? "Form Items" : GenesisShopConfig.defaultCategory(id, formatName(id));
     }
 
     private static List<CostData> defaultCosts(String itemId, String category) {
@@ -386,7 +391,13 @@ public final class ChampCraftingConfig {
             return costs;
         }
         if (path.equals("trial_key")) {
-            add(costs, "minecraft:raw_copper", 2500);
+            add(costs, "minecraft:raw_copper", 1000);
+            return costs;
+        }
+        if (path.equals("ominous_trial_key")) {
+            add(costs, "minecraft:raw_copper", 1500);
+            add(costs, "minecraft:diamond", 96);
+            add(costs, "credits", 3500, "credits");
             return costs;
         }
         if (path.equals("ability_patch")) {
@@ -466,6 +477,34 @@ public final class ChampCraftingConfig {
             add(costs, "cobblemon:oran_berry", 200);
             add(costs, "cobblemon:sitrus_berry", 104);
             addCreditCost(costs, category, id);
+            return costs;
+        }
+        if (path.equals("oval_stone")) {
+            add(costs, "minecraft:cobblestone", 128);
+            add(costs, "minecraft:raw_iron", 64);
+            add(costs, "cobblemon:white_apricorn", 16);
+            add(costs, "cobblemon:shiny_stone", 1);
+            addCreditCost(costs, category, id);
+            return costs;
+        }
+        if (path.equals("legend_plate")) {
+            add(costs, "minecraft:cobblestone", 100000);
+            add(costs, "minecraft:raw_gold", 10000);
+            add(costs, "minecraft:diamond", 512);
+            add(costs, "minecraft:emerald", 512);
+            add(costs, "cobblemon:relic_coin", 64);
+            add(costs, "cobblemon:rare_candy", 16);
+            add(costs, "cobblemon:ability_patch", 8);
+            add(costs, "cobblemon:life_orb", 16);
+            add(costs, "cobblemon:old_amber_fossil", 4);
+            add(costs, "cobblemon:helix_fossil", 4);
+            add(costs, "cobblemon:dome_fossil", 4);
+            add(costs, "cobblemon:root_fossil", 4);
+            add(costs, "cobblemon:shiny_stone", 16);
+            add(costs, "cobblemon:dusk_stone", 16);
+            add(costs, "cobblemon:dawn_stone", 16);
+            add(costs, "cobblemon:moon_stone", 16);
+            add(costs, "credits", 5000, "credits");
             return costs;
         }
 
@@ -575,27 +614,54 @@ public final class ChampCraftingConfig {
         String id = normalizeOutputId(itemId);
         String path = path(id).toLowerCase(Locale.ROOT);
         String c = category == null ? "" : category.toLowerCase(Locale.ROOT);
-        if (id.equals("minecraft:enchanted_golden_apple")) return 50L;
-        if (path.equals("rare_candy")) return 25L;
-        if (path.equals("exp_candy_xs")) return 5L;
-        if (path.equals("exp_candy_s")) return 10L;
-        if (path.equals("exp_candy_m")) return 25L;
-        if (path.equals("exp_candy_l")) return 50L;
-        if (path.equals("exp_candy_xl")) return 100L;
-        if (path.equals("ability_capsule")) return 100L;
-        if (path.equals("ability_patch")) return 250L;
-        if (path.equals("master_ball")) return 750L;
-        if (path.contains("bottle_cap")) return path.contains("gold") ? 500L : 150L;
-        if (path.endsWith("_nectar")) return 10L;
-        if (path.equals("ash_cap")) return 0L;
-        if (c.contains("mega")) return 250L;
-        if (c.contains("key")) return 500L;
-        if (c.contains("z-crystal")) return 150L;
-        if (c.contains("tera")) return 25L;
-        if (c.contains("plate")) return 100L;
-        if (c.contains("memory") || c.contains("drive") || c.contains("mask")) return 100L;
-        if (c.contains("orb") || c.contains("crystal")) return 250L;
-        return 75L;
+        if (id.equals("minecraft:enchanted_golden_apple")) return 2500L;
+        if (path.equals("rare_candy")) return 750L;
+        if (path.equals("oval_stone")) return 500L;
+        if (path.equals("auspicious_armor") || path.equals("malicious_armor")) return 2000L;
+        if (path.equals("ability_capsule")) return 1500L;
+        if (path.equals("ability_patch")) return 5000L;
+        if (path.equals("master_ball")) return 10000L;
+        if (path.equals("gold_bottle_cap") || path.equals("golden_bottle_cap")) return 10000L;
+        if (path.contains("bottle_cap")) return 2500L;
+        if (path.equals("legend_plate")) return 10000L;
+        if (id.startsWith("genesisforms:") && c.contains("form item")) {
+            return switch (path) {
+                case "pink_nectar", "purple_nectar", "red_nectar", "yellow_nectar" -> 1000L;
+                case "lucky_punch" -> 1500L;
+                case "macho_brace", "booster_energy" -> 2000L;
+                case "gracidea_flower" -> 2500L;
+                case "meteorite" -> 3000L;
+                case "prison_bottle", "reveal_glass" -> 4500L;
+                case "rusted_sword", "rusted_shield" -> 5000L;
+                case "lustrous_globe", "griseous_core" -> 6500L;
+                case "n_solarizer", "n_lunarizer" -> 7500L;
+                case "dna_splicers" -> 8000L;
+                case "reins_of_unity" -> 9000L;
+                case "zygarde_cube" -> 10000L;
+                default -> 4000L;
+            };
+        }
+        if (c.contains("type gem") || c.contains("tera shard")) return 500L;
+        if (c.contains("memory")) return 1250L;
+        if (c.contains("drive")) return 2000L;
+        if (c.contains("rotom")) return 1500L;
+        if (c.contains("mask")) return 2000L;
+        if (c.contains("mega")) {
+            if (path.contains("mewtwonite") || path.contains("latiasite") || path.contains("latiosite") || path.contains("diancite")) return 6000L;
+            if (path.contains("charizardite") || path.contains("blastoisinite") || path.contains("venusaurite")
+                    || path.contains("blazikenite") || path.contains("sceptilite") || path.contains("swampertite")
+                    || path.contains("garchompite") || path.contains("metagrossite") || path.contains("salamencite")
+                    || path.contains("tyranitarite") || path.contains("lucarionite") || path.contains("gengarite")) return 4000L;
+            return 3000L;
+        }
+        if (c.contains("key item")) return 5000L;
+        if (c.contains("z-crystal")) return 3000L;
+        if (c.contains("plate")) return 2000L;
+        if (c.contains("orb") || c.contains("crystal")) return 4000L;
+        if (c.contains("evolution")) return 1000L;
+        if (c.contains("candy")) return 750L;
+        if (c.contains("poké ball") || c.contains("poke ball")) return 1500L;
+        return 1000L;
     }
 
     private static int defaultOutputAmount(String id, String category) {
@@ -611,7 +677,22 @@ public final class ChampCraftingConfig {
         if (value.isBlank()) return "";
         if (!value.contains(":")) value = "minecraft:" + value;
         if (value.equals("minecraft:netherack")) value = "minecraft:netherrack";
-        return value;
+        return migrateBottleCapId(value);
+    }
+
+    private static String migrateBottleCapId(String value) {
+        if (value == null) return "";
+        String path = value.contains(":") ? value.substring(value.indexOf(':') + 1) : value;
+        return switch (path) {
+            case "bottle_cap", "silver_bottle_cap", "silver_bottle_cap_atk", "silver_bottle_cap_attack" -> "champutils:silver_bottle_cap_atk";
+            case "silver_bottle_cap_def", "silver_bottle_cap_defence", "silver_bottle_cap_defense" -> "champutils:silver_bottle_cap_def";
+            case "silver_bottle_cap_hp" -> "champutils:silver_bottle_cap_hp";
+            case "silver_bottle_cap_sp_atk", "silver_bottle_cap_special_attack" -> "champutils:silver_bottle_cap_sp_atk";
+            case "silver_bottle_cap_sp_def", "silver_bottle_cap_special_defence", "silver_bottle_cap_special_defense" -> "champutils:silver_bottle_cap_sp_def";
+            case "silver_bottle_cap_speed" -> "champutils:silver_bottle_cap_speed";
+            case "gold_bottle_cap", "golden_bottle_cap" -> "champutils:golden_bottle_cap";
+            default -> value;
+        };
     }
 
     private static String normalizeSource(String raw) {

@@ -12,13 +12,13 @@ import net.minecraft.world.item.Items;
 public final class BattleTowerContinueMenu {
     private BattleTowerContinueMenu() {}
 
-    public static void open(ServerPlayer player, int clearedFloor, boolean checkpoint) {
+    public static void open(ServerPlayer player, int clearedFloor, boolean healed) {
         if (player == null) return;
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x3, player);
-        gui.setTitle(Component.literal(checkpoint ? "Continue?" : "Floor " + clearedFloor + " Cleared"));
-        gui.setSlot(4, new GuiElementBuilder(checkpoint ? Items.GOLD_BLOCK : Items.DIAMOND_SWORD)
-                .hideDefaultTooltip().setName(Component.literal(checkpoint ? "§6Checkpoint Cleared" : "§dFloor " + clearedFloor + " Cleared"))
-                .addLoreLine(Component.literal(checkpoint ? "§7Your party has been healed." : "§7Choose whether to continue your climb.")));
+        gui.setTitle(Component.literal(healed ? "Team Restored" : "Floor " + clearedFloor + " Cleared"));
+        gui.setSlot(4, new GuiElementBuilder(healed ? Items.GOLDEN_APPLE : Items.DIAMOND_SWORD)
+                .hideDefaultTooltip().setName(Component.literal(healed ? "§6Team Fully Healed" : "§dFloor " + clearedFloor + " Cleared"))
+                .addLoreLine(Component.literal(healed ? "§7Your party has been healed after five floors." : "§7Choose whether to continue your climb.")));
         gui.setSlot(11, new GuiElementBuilder(Items.LIME_STAINED_GLASS_PANE).hideDefaultTooltip()
                 .setName(Component.literal("§aContinue"))
                 .addLoreLine(Component.literal("§7Advance to the next floor."))

@@ -270,6 +270,11 @@ public class BattleListener {
     ) {
         boolean ranked = battleType == BattleContextManager.BattleType.RANKED;
 
+        // The loser is the forfeiting participant for a rejected queue result.
+        // This uses the exact same integrity verdict that suppresses every quest,
+        // profile, guild, profession, token, RP, and Adventure Guide progression path.
+        MatchmakingManager.recordFakeBattleForfeit(loser);
+
         if (Config.arenas != null && !Config.arenas.isEmpty()) {
             MatchmakingManager.returnPlayerAfterQueuedPvp(winner);
             MatchmakingManager.returnPlayerAfterQueuedPvp(loser);
@@ -290,16 +295,16 @@ public class BattleListener {
 
         String queueName = ranked ? "ranked" : "casual";
         winner.sendSystemMessage(Component.literal(
-                "§eThe " + queueName + " match ended too quickly to count as a completed battle. " +
-                        "No tokens, RP, progression, or normal rewards were granted." +
+                "§eThe " + queueName + " match ended in under 90 seconds with no Pokémon fainted. " +
+                        "No tokens, RP, quests, progression, or normal rewards were granted." +
                         (consolation > 0L ? " §aYou received " + EconomyManager.format(consolation) + " as a forfeit consolation." : "")
         ));
         loser.sendSystemMessage(Component.literal(
-                "§cThis " + queueName + " match was classified as an immediate forfeit. " +
-                        "Neither player received tokens, RP, progression, or normal match rewards."
+                "§cThis " + queueName + " match was classified as fake because it ended in under 90 seconds with no Pokémon fainted. " +
+                        "Neither player received tokens, RP, quests, progression, or normal match rewards."
         ));
 
-        System.out.println("[ChampUtils][PvPIntegrity] Rejected immediate " + queueName +
+        System.out.println("[ChampUtils][PvPIntegrity] Rejected fake " + queueName +
                 " match: winner=" + winner.getGameProfile().getName() +
                 ", loser=" + loser.getGameProfile().getName() +
                 ", elapsed=" + integrity.elapsedSeconds() + "s, faints=" + integrity.faintCount());
@@ -339,12 +344,16 @@ public class BattleListener {
         switch (type) {
 
             case RANKED:
+                // PvP grants profession XP only. Never roll chunks for player-vs-player battles.
+                rewardRoll = null;
                 xp = Math.max(1, getBattleXp("ranked_pvp"));
                 if (xp <= 1) xp = Math.max(1, getBattleXp("pvp"));
                 xp *= 5;
                 break;
 
             case CASUAL:
+                // PvP grants profession XP only. Never roll chunks for player-vs-player battles.
+                rewardRoll = null;
                 xp = Math.max(1, getBattleXp("casual_pvp"));
                 if (xp <= 1) xp = Math.max(1, getBattleXp("pvp"));
                 xp *= 3;

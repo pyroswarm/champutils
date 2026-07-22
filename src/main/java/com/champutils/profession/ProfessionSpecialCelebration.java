@@ -119,6 +119,38 @@ public final class ProfessionSpecialCelebration {
         );
     }
 
+
+    public static void celebrateProfessionLevelUp(
+            ServerPlayer player,
+            ProfessionType type,
+            int level
+    ) {
+        if (player == null || type == null || level <= 0) {
+            return;
+        }
+
+        String color = switch (type) {
+            case MINING -> "§b";
+            case FORESTRY -> "§a";
+            case FARMING -> "§e";
+            case BATTLING -> "§6";
+            case BREEDING -> "§d";
+        };
+
+        showPrimary(
+                player,
+                color + "§l" + type.name() + " LEVEL UP!",
+                "§fLevel " + level + " §7- bonuses increased",
+                color + type.name() + " level increased to §f" + level,
+                5,
+                45,
+                15,
+                0.9F,
+                1.1F,
+                CelebrationSound.MEDIUM
+        );
+    }
+
     public static void celebrateSublevelUp(
             ServerPlayer player,
             String name,
@@ -144,9 +176,14 @@ public final class ProfessionSpecialCelebration {
             String chunkName
     ) {
         String safeName = chunkName == null || chunkName.isBlank() ? "Rare Chunk" : chunkName;
+        String normalized = safeName.toUpperCase(java.util.Locale.ROOT);
+        String rank = normalized.contains("NETHERITE") ? "S"
+                : normalized.contains("DIAMOND") ? "A"
+                : normalized.contains("EMERALD") ? "B"
+                : normalized.contains("GOLD") ? "C" : "D";
         show(
                 player,
-                "§6§lD CHUNK!",
+                "§6§l" + rank + " CHUNK!",
                 "§e" + safeName,
                 "§6Rare Chunk Found: §e" + safeName,
                 5,
@@ -156,6 +193,45 @@ public final class ProfessionSpecialCelebration {
                 1.7F,
                 CelebrationSound.PING
         );
+    }
+
+    private static void showPrimary(
+            ServerPlayer player,
+            String title,
+            String subtitle,
+            String chatFallback,
+            int fadeInTicks,
+            int stayTicks,
+            int fadeOutTicks,
+            float volume,
+            float pitch,
+            CelebrationSound sound
+    ) {
+        if (player == null) {
+            return;
+        }
+
+        if (!ProfessionNotificationSettings.areProfessionPopupsEnabled(player)) {
+            if (chatFallback != null && !chatFallback.isBlank()) {
+                player.sendSystemMessage(Component.literal(chatFallback));
+            }
+            return;
+        }
+
+        long durationMs = Math.max(
+                750L,
+                (long) (fadeInTicks + stayTicks + fadeOutTicks) * 50L
+        );
+        TITLE_BUSY_UNTIL_MS.put(player.getUUID(), System.currentTimeMillis() + durationMs);
+
+        player.connection.send(new ClientboundSetTitlesAnimationPacket(
+                fadeInTicks, stayTicks, fadeOutTicks
+        ));
+        player.connection.send(new ClientboundSetTitleTextPacket(Component.literal(title)));
+        if (subtitle != null && !subtitle.isBlank()) {
+            player.connection.send(new ClientboundSetSubtitleTextPacket(Component.literal(subtitle)));
+        }
+        playSound(player, sound, volume, pitch);
     }
 
     private static void show(

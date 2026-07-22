@@ -24,14 +24,15 @@ public final class CashShopBoostItemManager {
 
     static {
         add("shiny_surge", "§dShiny Surge", BuffType.SHINY_CHANCE, 0.01D, "Increases the current shiny chance by +1% for the whole server for 15 minutes.");
-        add("special_surge", "§6Legendary Surge", null, 0.50D, "Adds +50% legendary/mythical wild spawn chance for the whole server for 15 minutes.");
-        add("paradox_surge", "§5Paradox Surge", null, 0.50D, "Adds +50% paradox wild spawn chance for the whole server for 15 minutes.");
-        add("ultrabeast_surge", "§bUltra Beast Surge", null, 0.50D, "Adds +50% Ultra Beast wild spawn chance for the whole server for 15 minutes.");
+        add("special_surge", "§6Legendary Surge", null, 1.00D, "Doubles legendary/mythical wild spawn chance (+100%) for the whole server for 15 minutes.");
+        add("paradox_surge", "§5Paradox Surge", null, 1.00D, "Doubles paradox wild spawn chance (+100%) for the whole server for 15 minutes.");
+        add("ultrabeast_surge", "§bUltra Beast Surge", null, 1.00D, "Doubles Ultra Beast wild spawn chance (+100%) for the whole server for 15 minutes.");
         add("pokemon_xp_surge", "§9Pokémon XP Surge", BuffType.POKEMON_XP, 0.25D, "Adds +25% Pokémon battle XP for 15 minutes.");
         add("mining_xp_surge", "§3Mining XP Surge", BuffType.MINING_XP, 0.50D, "Adds +50% Mining profession XP for the whole server for 15 minutes.");
         add("forestry_xp_surge", "§aForestry XP Surge", BuffType.FORESTRY_XP, 0.50D, "Adds +50% Forestry profession XP for the whole server for 15 minutes.");
         add("farming_xp_surge", "§eFarming XP Surge", BuffType.FARMING_XP, 0.50D, "Adds +50% Farming profession XP for the whole server for 15 minutes.");
-        add("battling_xp_surge", "§cBattle XP Surge", BuffType.BATTLING_XP, 0.50D, "Adds +50% Battle profession XP for the whole server for 15 minutes.");
+        add("battling_xp_surge", "§cBattle Profession XP Booster", BuffType.BATTLING_XP, 0.50D, "Adds +50% Battle profession XP for the whole server for 15 minutes.");
+        add("chunk_chance_surge", "§6Chunk Chance Booster", BuffType.CHUNK_CHANCE, 0.50D, "Adds +50% profession chunk chance for the whole server for 15 minutes.");
     }
 
     private CashShopBoostItemManager() {}

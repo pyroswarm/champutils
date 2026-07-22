@@ -542,6 +542,17 @@ public class ProfessionManager {
         });
     }
 
+
+    public static void installSharedSnapshot(UUID profileId, UUID ownerId, ProfessionDataManager.ProfessionData snapshot) {
+        if (profileId == null || snapshot == null) return;
+        ProfessionDataManager.ensureProfessionDefaults(snapshot);
+        snapshot.uuid = profileId.toString();
+        CACHE.put(profileId, ProfessionDataManager.copyOf(snapshot));
+        if (ownerId != null) PROFILE_OWNER_CACHE.put(profileId, ownerId);
+        DIRTY_PLAYERS.remove(profileId);
+        DIRTY_GENERATIONS.remove(profileId);
+    }
+
     public static ProfessionDataManager.ProfessionData snapshotForTransfer(ServerPlayer player) {
         if (player == null || !PlayerProfileManager.hasActiveProfile(player)) return null;
         UUID profileId = PlayerProfileManager.activeProfileId(player);

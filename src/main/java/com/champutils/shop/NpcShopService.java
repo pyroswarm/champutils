@@ -382,6 +382,10 @@ public final class NpcShopService {
             sentToPc = true;
         }
 
+        // Crate Pokémon are genuine profile acquisitions. Register only after the
+        // party/PC delivery succeeded so a failed opening cannot create phantom dex data.
+        com.champutils.dex.TrueCaughtDexManager.markTrueCaught(player, pokemon);
+
         String displayName;
         try {
             displayName = pokemon.getDisplayName(true).getString();

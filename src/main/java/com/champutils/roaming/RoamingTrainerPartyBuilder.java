@@ -3,6 +3,7 @@ package com.champutils.roaming;
 import com.champutils.util.CobblemonHeldItemUtil;
 import com.champutils.adventurer.BattleTowerPoolConfig;
 import com.champutils.adventurer.AdventurerGuildManager;
+import com.champutils.profile.IslanderSpawnInfluence;
 import com.cobblemon.mod.common.api.Priority;
 import com.cobblemon.mod.common.api.abilities.Abilities;
 import com.cobblemon.mod.common.api.pokemon.Natures;
@@ -78,12 +79,12 @@ public final class RoamingTrainerPartyBuilder {
         BattleTowerPoolConfig.Tier tier = AdventurerGuildManager.SOURCE_BATTLE_TOWER_ULTIMATE.equals(data.adventureSource)
                 ? BattleTowerPoolConfig.tier(10)
                 : BattleTowerPoolConfig.tierForFloor(data.towerFloor);
-        int level = Math.max(1, Math.min(100, data.targetLevel));
+        int level = Math.max(30, Math.min(100, data.targetLevel));
         npc.initialize(level);
         NPCPartyStore party = new NPCPartyStore(npc);
         List<BattleTowerPoolConfig.SetEntry> available = new ArrayList<>(tier.pool);
         Collections.shuffle(available, RANDOM);
-        int count = Math.min(3, available.size());
+        int count = Math.min(2, available.size());
         for (int slot=0; slot<count; slot++) {
             Pokemon pokemon = createTowerPokemon(available.get(slot), level);
             if (pokemon != null) party.set(slot, pokemon);
@@ -130,6 +131,10 @@ public final class RoamingTrainerPartyBuilder {
             String species = configured != null ? configured.species : pickSpecies(rarity, settings, slot, usedSpecies, useLargePool);
             int level = Math.max(1, Math.min(100, baseLevel));
             Pokemon pokemon = PokemonProperties.Companion.parse(pokemonProperties(species, level)).create();
+            // Normalize ordinary passive/level evolutions before applying the configured set.
+            // This prevents under-evolved registry picks such as a level 100 Charmander.
+            IslanderSpawnInfluence.normalizeEvolutionForLevel(pokemon, level);
+            species = pokemon.getSpecies() == null ? species : pokemon.getSpecies().getName();
 
             if (configured != null) {
                 applyConfiguredIVsOrPerfect(pokemon, configured);

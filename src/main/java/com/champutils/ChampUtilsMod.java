@@ -268,6 +268,7 @@ public class ChampUtilsMod implements ModInitializer {
         IronmanBlockOwnership.register();
         IronmanTradeBlocker.register();
         EconomyManager.load();
+        com.champutils.commands.EggMoveConfig.load();
         com.champutils.scoreboard.ScoreboardPreferenceManager.load();
         SellPriceConfig.load();
         NpcShopConfig.load();
@@ -330,6 +331,7 @@ public class ChampUtilsMod implements ModInitializer {
          PROFESSION CONFIGS
          =========================
          */
+        com.champutils.item.BottleCapItemManager.registerItems();
         ProfessionConfig.load();
         ProfessionChunkConfig.load();
         ProfessionBackpackConfig.load();
@@ -348,7 +350,6 @@ public class ChampUtilsMod implements ModInitializer {
         TMManager.registerTMs();
         ProfessionFragmentUseListener.register();
         EmblemUseListener.register();
-        TMUseListener.register();
         ProfessionToolManager.registerTools();
         ProfessionToolRequirementListener.register();
         ProfessionToolActiveAbilityListener.register();
@@ -772,6 +773,8 @@ public class ChampUtilsMod implements ModInitializer {
         PortalCommand.register();
         RoamingTrainerCommand.register();
         SpecialWildSpawnCommand.register();
+        SpawnTrackCommand.register();
+        WorldTimeVoteCommand.register();
         PokemonWikiCommand.register();
         BattleExitCommand.register();
         BattleSpectateCommand.register();
@@ -789,6 +792,7 @@ public class ChampUtilsMod implements ModInitializer {
         com.champutils.chat.NicknameCommand.register();
         PrivateMessageCommand.register();
         RankedShopCommand.register();
+        RankedTokenCommand.register();
         DiscordCommand.register();
         TitleCommand.register();
         TrailCommand.register();
@@ -813,6 +817,7 @@ public class ChampUtilsMod implements ModInitializer {
         com.champutils.antilag.CatchAttemptProtectionListener.register();
         com.champutils.buff.CatchChanceGuaranteeListener.register();
         TMCommand.register();
+        EggMoveCommand.register();
         LandClaimCommand.register();
         GymRewardCommand.register();
         ExpeditionCommand.register();
@@ -870,6 +875,7 @@ public class ChampUtilsMod implements ModInitializer {
         WildGymLevelCapManager.register();
         SpecialSpawnDamageProtectionListener.register();
         TradeEvolutionTrueDexListener.register();
+        TrueDexAdminCommand.register();
         ChestShopInteractionListener.register();
         // Steward interactions must register before generic territory entity protection so the
         // steward menu is linked deterministically for owners and guild members.

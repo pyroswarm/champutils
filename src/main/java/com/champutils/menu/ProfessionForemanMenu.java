@@ -92,7 +92,7 @@ public final class ProfessionForemanMenu {
                 .addLoreLine(Component.literal("§eClick to open."))
                 .setCallback((i,c,t) -> ChampCraftingMenu.open(player, ProfessionForemanMenu::open)));
 
-        int slot = 29;
+        int slot = 28;
         for (String chunk : ProfessionChunkConfig.CONFIG.chunks.keySet()) {
             int amount = ProfessionChunkManager.count(player, chunk);
             gui.setSlot(slot++, new GuiElementBuilder(icon(chunk)).hideDefaultTooltip()
@@ -111,7 +111,7 @@ public final class ProfessionForemanMenu {
         gui.setTitle(Component.literal("Chunk Essence Trades"));
         MenuUtil.fillBorders(gui, 4, 10,11,12,13,14,15,16, 19,20,21,22,23,24,25, 28,29,30,31,32,33,34, 37,38,39,40,41,42,43, 49);
         List<String> chunks = new ArrayList<>(ProfessionChunkConfig.CONFIG.chunks.keySet());
-        int[] slots = {20,21,22,23,24,25};
+        int[] slots = {19,20,21,22,23,24,25};
         for (int idx = 0; idx < chunks.size() && idx < slots.length; idx++) {
             String chunk = chunks.get(idx);
             ProfessionChunkConfig.ChunkData data = ProfessionChunkConfig.CONFIG.chunks.get(chunk);
@@ -145,6 +145,7 @@ public final class ProfessionForemanMenu {
             case "COPPER" -> Items.COPPER_INGOT;
             case "IRON" -> Items.IRON_INGOT;
             case "GOLD" -> Items.GOLD_INGOT;
+            case "EMERALD" -> Items.EMERALD;
             case "DIAMOND" -> Items.DIAMOND;
             case "NETHERITE" -> Items.NETHERITE_INGOT;
             default -> Items.COBBLESTONE;

@@ -217,6 +217,46 @@ public final class DatabaseManager {
         });
     }
 
+    /**
+     * Queues a latest-value-wins task and retries transient connection failures with a fresh
+     * worker connection. Intended for small idempotent snapshots such as profile locations.
+     */
+    public static void executeCoalescedRetryAsync(String coalesceKey, String description, int maxAttempts, SqlTask task) {
+        if (task == null) return;
+        if (coalesceKey == null || coalesceKey.isBlank()) {
+            executeAsync(description, task);
+            return;
+        }
+        if (!prepareAsyncSubmission(description)) return;
+
+        AtomicLong generation = COALESCED_TASK_GENERATIONS.computeIfAbsent(coalesceKey, ignored -> new AtomicLong());
+        long myGeneration = generation.incrementAndGet();
+        int attempts = Math.max(1, Math.min(3, maxAttempts));
+
+        submit(description, () -> {
+            Throwable finalError = null;
+            try {
+                if (generation.get() != myGeneration) return;
+                for (int attempt = 1; attempt <= attempts; attempt++) {
+                    try {
+                        task.run(getAsyncConnection());
+                        finalError = null;
+                        break;
+                    } catch (Throwable error) {
+                        finalError = error;
+                        if (!isConnectionFailure(error) || attempt >= attempts) break;
+                        invalidateCurrentAsyncConnection();
+                    }
+                }
+                if (finalError != null) handleTaskFailure(description, finalError, true);
+            } finally {
+                resetCurrentAsyncConnection();
+                if (generation.get() == myGeneration) COALESCED_TASK_GENERATIONS.remove(coalesceKey, generation);
+                COMPLETED_TASKS.incrementAndGet();
+            }
+        }, null);
+    }
+
     public static CompletableFuture<Void> runAsync(String description, SqlTask task) {
         if (task == null) return CompletableFuture.completedFuture(null);
         if (isDatabaseWorkerThread()) {

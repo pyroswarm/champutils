@@ -22,6 +22,7 @@ import javax.crypto.spec.SecretKeySpec;
 public final class ProfileTransferTokenManager {
     private static final String HMAC_ALGORITHM = "HmacSHA256";
     private static final int DEFAULT_TTL_SECONDS = 60;
+    private static volatile boolean schemaEnsured = false;
 
     private ProfileTransferTokenManager() {}
 
@@ -33,7 +34,8 @@ public final class ProfileTransferTokenManager {
 
     public record ConsumedToken(UUID tokenId, UUID playerUuid, UUID profileId, Instant issuedAt, Instant expiresAt, String targetServer, String metadataJson) {}
 
-    public static void ensureSchema(Connection connection) throws Exception {
+    public static synchronized void ensureSchema(Connection connection) throws Exception {
+        if (schemaEnsured || connection == null) return;
         try (var statement = connection.createStatement()) {
             statement.executeUpdate("create extension if not exists pgcrypto");
             statement.executeUpdate(
@@ -80,6 +82,7 @@ public final class ProfileTransferTokenManager {
             statement.executeUpdate("create index if not exists idx_profile_transfer_audit_logs_player on profile_transfer_audit_logs(player_uuid, created_at desc)");
             statement.executeUpdate("create index if not exists idx_profile_transfer_audit_logs_profile on profile_transfer_audit_logs(profile_id, created_at desc)");
         }
+        schemaEnsured = true;
     }
 
     public static IssuedToken issue(

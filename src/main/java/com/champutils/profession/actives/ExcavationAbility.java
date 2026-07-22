@@ -36,10 +36,8 @@ public class ExcavationAbility implements ProfessionActiveAbility {
     }
 
     private double getDurationSeconds(ServerPlayer player, ItemStack stack) {
-        double rolledSeconds = ProfessionToolUtil.getStat(stack, "excavationSeconds");
-        double fallback = rolledSeconds <= 0.0D ? DEFAULT_SECONDS : rolledSeconds;
         return ActiveEffectManager.extendedActiveDurationSeconds(
-                ProfessionActiveDuration.durationSeconds(player, stack, fallback, null)
+                ProfessionActiveDuration.durationSeconds(player, stack, DEFAULT_SECONDS, null)
         );
     }
 }

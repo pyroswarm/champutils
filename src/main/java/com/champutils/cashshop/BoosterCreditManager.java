@@ -64,7 +64,18 @@ public final class BoosterCreditManager {
     public static void register() {
         if (registered) return;
         registered = true;
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> updateVipPlusProgress(handler.player, true));
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            UUID uuid = handler.player.getUUID();
+            // During a proxy backend switch the destination JOIN can race the source DISCONNECT
+            // write. Never grant from a backend-local snapshot. Give the source a brief chance to
+            // flush, invalidate this backend's cache, then evaluate the shared state.
+            java.util.concurrent.CompletableFuture.runAsync(() -> server.execute(() -> {
+                ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+                if (player == null || player.hasDisconnected()) return;
+                invalidateSharedCache(uuid);
+                updateVipPlusProgress(player, true);
+            }), java.util.concurrent.CompletableFuture.delayedExecutor(1500L, java.util.concurrent.TimeUnit.MILLISECONDS));
+        });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> saveVipPlusSession(handler.player));
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             tickCounter++;
@@ -192,7 +203,23 @@ public final class BoosterCreditManager {
             e.vipPlusCredits += 1;
             e.vipPlusClaimsToday += 1;
             changed = true;
-            player.sendSystemMessage(Component.literal("VIP+ daily reward: +1 earned booster credit (" + e.vipPlusClaimsToday + "/" + VIP_PLUS_DAILY_MAX_CLAIMS + ").").withStyle(ChatFormatting.LIGHT_PURPLE));
+            // The credit can still be earned up to three times per day, but only the
+            // first grant produces a chat notice. Repeated hourly notices looked like
+            // duplicate reward grants even though the balance was correct.
+            if ((e.vipPlusRewardNoticeDate == null || e.vipPlusRewardNoticeDate.isBlank())
+                    && e.vipPlusRewardNoticeKey != null
+                    && e.vipPlusRewardNoticeKey.startsWith(e.vipPlusDate)) {
+                // Preserve "already shown today" from the old date:claim notice key
+                // during the first restart after this migration.
+                e.vipPlusRewardNoticeDate = e.vipPlusDate;
+            }
+            if (!e.vipPlusDate.equals(e.vipPlusRewardNoticeDate)) {
+                e.vipPlusRewardNoticeDate = e.vipPlusDate;
+                e.vipPlusRewardNoticeKey = e.vipPlusDate; // migrate the old per-claim notice field
+                player.sendSystemMessage(Component.literal(
+                        "VIP+ daily rewards: +1 booster credit"
+                ).withStyle(ChatFormatting.LIGHT_PURPLE));
+            }
         }
         return changed;
     }
@@ -368,6 +395,10 @@ public final class BoosterCreditManager {
         long vipPlusDailyOnlineMillis = 0L;
         long vipPlusLastSeenMillis = 0L;
         String vipPlusCapNoticeKey = "";
+        /** UTC date on which the player already saw the daily reward notice. */
+        String vipPlusRewardNoticeDate = "";
+        /** Legacy per-claim notice key retained for backwards-compatible JSON migration. */
+        String vipPlusRewardNoticeKey = "";
         /** Legacy one-credit-per-day field, intentionally ignored after split. */
         String lastDailyVipPlus = "";
     }

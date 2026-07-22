@@ -25,10 +25,10 @@ public class ProfessionConfig {
         public Map<String, Integer> battleXp = new HashMap<>();
         public Map<String, Integer> farmingXp = new HashMap<>();
         public Map<String, RewardTable> rewards = new HashMap<>();
-        public int sublevelProgressionVersion = 2;
-        public int sublevelXpBase = 60;
-        public int sublevelXpPerLevel = 15;
-        public double sublevelXpGrowthAfter50 = 1.07D;
+        public int sublevelProgressionVersion = 3;
+        public int sublevelXpBase = 25;
+        public int sublevelXpPerLevel = 3;
+        public double sublevelXpGrowthAfter50 = 1.01D;
     }
 
     public static class RewardTable {
@@ -98,9 +98,9 @@ public class ProfessionConfig {
         ProfessionSettings defaults = buildDefaultSettings();
         boolean changed = false;
 
-        // Version 2 intentionally makes individual sublevels much faster than the
-        // overall profession. Migrate existing generated configs so servers do not
-        // remain on the old main-profession-equivalent curve.
+        // Version 3 makes mastery tracks intentionally much faster than the main
+        // profession and removes the harsh late-level curve. Migrate existing
+        // generated configs so live servers receive the new pacing automatically.
         if (target.sublevelProgressionVersion < defaults.sublevelProgressionVersion) {
             target.sublevelProgressionVersion = defaults.sublevelProgressionVersion;
             target.sublevelXpBase = defaults.sublevelXpBase;

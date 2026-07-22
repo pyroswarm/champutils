@@ -23,6 +23,8 @@ public final class AdventurerGuildConfig {
     private AdventurerGuildConfig() {}
 
     public static final class Settings {
+        /** Incremented when generated request reward defaults are rebalanced. */
+        public int requestBalanceVersion = 2;
         public boolean enabled = true;
         public int dailyResetHour = 9;
         public int dailyResetMinute = 0;
@@ -98,6 +100,8 @@ public final class AdventurerGuildConfig {
         public int creditCost = 0;
         public int rewardRenown = 60;
         public int rewardMarks = 1;
+        /** Whole credits awarded after completion, separate from the request purchase cost. */
+        public int rewardCredits = 0;
         public List<String> rewardCommands = new ArrayList<>();
     }
 
@@ -180,18 +184,11 @@ public final class AdventurerGuildConfig {
         }
         RoamingLeagueEntry fallback = new RoamingLeagueEntry();
         fallback.rarity = safe.name();
-        fallback.creditCost = switch (safe) {
-            case F -> 0;
-            case E -> 100;
-            case D -> 250;
-            case C -> 500;
-            case B -> 750;
-            case A -> 1000;
-            case S -> 2000;
-        };
+        fallback.creditCost = requestCost(safe);
         fallback.minRenown = switch (safe) { case F -> 0; case E -> 750; case D -> 3_000; case C -> 12_000; case B -> 45_000; case A -> 125_000; case S -> 350_000; };
-        fallback.rewardRenown = 120 + safe.ordinal() * 140;
-        fallback.rewardMarks = 1 + safe.ordinal() * 2;
+        fallback.rewardRenown = requestRenown(safe);
+        fallback.rewardMarks = requestMarks(safe);
+        fallback.rewardCredits = requestCredits(safe);
         return fallback;
     }
 
@@ -270,7 +267,20 @@ public final class AdventurerGuildConfig {
             entry.requiredRenown = 0;
             entry.rarity = com.champutils.rarity.RarityScale.normalize(entry.rarity);
             if (entry.rewardCommands == null) entry.rewardCommands = new ArrayList<>();
+            RoamingTrainerRarity rarity;
+            try { rarity = RoamingTrainerRarity.valueOf(entry.rarity); }
+            catch (Exception ignored) { rarity = RoamingTrainerRarity.F; }
+
+            // Migration is intentionally additive: custom rewards above the new floor are
+            // preserved, while old generated values are lifted to the new useful minimums.
+            entry.rewardRenown = Math.max(entry.rewardRenown, requestRenown(rarity));
+            entry.rewardMarks = Math.max(entry.rewardMarks, requestMarks(rarity));
+            entry.rewardCredits = Math.max(entry.rewardCredits, requestCredits(rarity));
+            if (entry.creditCost == legacyRequestCost(rarity)) {
+                entry.creditCost = requestCost(rarity);
+            }
         }
+        SETTINGS.requestBalanceVersion = 2;
         for (RankDefinition rank : SETTINGS.ranks) {
             if (rank == null) continue;
             if (rank.requiredRenown > 0 && rank.renownRequired <= 0) rank.renownRequired = rank.requiredRenown;
@@ -335,20 +345,73 @@ public final class AdventurerGuildConfig {
                 case A -> 125_000;
                 case S -> 350_000;
             };
-            entry.creditCost = switch (rarity) {
-                case F -> 0;
-                case E -> 350;
-                case D -> 900;
-                case C -> 2_250;
-                case B -> 6_000;
-                case A -> 15_000;
-                case S -> 35_000;
-            };
-            entry.rewardRenown = 120 + rarity.ordinal() * 140;
-            entry.rewardMarks = 1 + rarity.ordinal() * 2;
+            entry.creditCost = requestCost(rarity);
+            entry.rewardRenown = requestRenown(rarity);
+            entry.rewardMarks = requestMarks(rarity);
+            entry.rewardCredits = requestCredits(rarity);
             entries.add(entry);
         }
         return entries;
+    }
+
+    private static int requestCost(RoamingTrainerRarity rarity) {
+        return switch (rarity) {
+            case F -> 0;
+            case E -> 250;
+            case D -> 700;
+            case C -> 1_750;
+            case B -> 4_500;
+            case A -> 10_000;
+            case S -> 22_500;
+        };
+    }
+
+    private static int legacyRequestCost(RoamingTrainerRarity rarity) {
+        return switch (rarity) {
+            case F -> 0;
+            case E -> 350;
+            case D -> 900;
+            case C -> 2_250;
+            case B -> 6_000;
+            case A -> 15_000;
+            case S -> 35_000;
+        };
+    }
+
+    private static int requestRenown(RoamingTrainerRarity rarity) {
+        return switch (rarity) {
+            case F -> 150;
+            case E -> 450;
+            case D -> 1_200;
+            case C -> 3_000;
+            case B -> 7_500;
+            case A -> 17_500;
+            case S -> 40_000;
+        };
+    }
+
+    private static int requestMarks(RoamingTrainerRarity rarity) {
+        return switch (rarity) {
+            case F -> 1;
+            case E -> 3;
+            case D -> 7;
+            case C -> 14;
+            case B -> 28;
+            case A -> 55;
+            case S -> 100;
+        };
+    }
+
+    private static int requestCredits(RoamingTrainerRarity rarity) {
+        return switch (rarity) {
+            case F -> 250;
+            case E -> 750;
+            case D -> 2_000;
+            case C -> 5_000;
+            case B -> 12_000;
+            case A -> 30_000;
+            case S -> 75_000;
+        };
     }
 
     private static List<RankDefinition> defaultRanks() {

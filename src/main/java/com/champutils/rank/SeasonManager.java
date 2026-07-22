@@ -30,6 +30,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 
 public class SeasonManager {
 
@@ -51,10 +53,16 @@ public class SeasonManager {
     private static boolean pendingSeasonReset = false;
     private static int resetTickCountdown = 0;
     private static String pendingSeasonName = null;
+    private static long seasonStartedAtEpochMs = 0L;
+    private static long seasonEndsAtEpochMs = 0L;
+    private static int autoSeasonCheckTicks = 0;
+    public static final int SEASON_LENGTH_DAYS = 60;
 
     public static class SeasonState {
         public int currentSeason = 0;
         public String currentName = "Offseason";
+        public long startedAtEpochMs = 0L;
+        public long endsAtEpochMs = 0L;
     }
 
     public static class PlayerSnapshot {
@@ -122,6 +130,9 @@ public class SeasonManager {
         CURRENT_NAME = shared.currentName == null || shared.currentName.isBlank()
                 ? (CURRENT_SEASON == 0 ? "Offseason" : "Season " + CURRENT_SEASON)
                 : shared.currentName;
+        seasonStartedAtEpochMs = shared.startedAtEpochMs;
+        seasonEndsAtEpochMs = shared.endsAtEpochMs;
+        ensureSeasonWindow();
         saveState(false);
     }
 
@@ -149,6 +160,8 @@ public class SeasonManager {
             SeasonState state = new SeasonState();
             state.currentSeason = Math.max(0, CURRENT_SEASON);
             state.currentName = CURRENT_NAME;
+            state.startedAtEpochMs = seasonStartedAtEpochMs;
+            state.endsAtEpochMs = seasonEndsAtEpochMs;
             try (FileWriter writer = new FileWriter(getStateFile())) {
                 GSON.toJson(state, writer);
             }
@@ -182,6 +195,9 @@ public class SeasonManager {
                 CURRENT_NAME = state.currentName == null || state.currentName.isBlank()
                         ? (CURRENT_SEASON == 0 ? "Offseason" : "Season " + CURRENT_SEASON)
                         : state.currentName;
+                seasonStartedAtEpochMs = state.startedAtEpochMs;
+                seasonEndsAtEpochMs = state.endsAtEpochMs;
+                ensureSeasonWindow();
                 try (FileWriter writer = new FileWriter(getStateFile())) {
                     GSON.toJson(state, writer);
                 } catch (Exception ignored) {
@@ -289,6 +305,13 @@ public class SeasonManager {
     public static void tick(
             MinecraftServer server
     ) {
+        if (++autoSeasonCheckTicks >= 20) {
+            autoSeasonCheckTicks = 0;
+            ensureSeasonWindow();
+            if (!pendingSeasonReset && CURRENT_SEASON > 0 && System.currentTimeMillis() >= seasonEndsAtEpochMs) {
+                startNewSeason(server, "Season " + (CURRENT_SEASON + 1));
+            }
+        }
         if (!pendingSeasonReset) {
             return;
         }
@@ -328,6 +351,8 @@ public class SeasonManager {
 
         CURRENT_SEASON = newSeason;
         CURRENT_NAME = safeName;
+        seasonStartedAtEpochMs = System.currentTimeMillis();
+        seasonEndsAtEpochMs = computeSeasonEnd(seasonStartedAtEpochMs);
         saveState();
 
         SeasonProfileDatabaseRepository.rolloverToNewSeason(
@@ -406,6 +431,30 @@ public class SeasonManager {
                                 " has begun!"
                 )
         );
+    }
+
+    private static void ensureSeasonWindow() {
+        long now = System.currentTimeMillis();
+        if (seasonStartedAtEpochMs <= 0L) seasonStartedAtEpochMs = now;
+        if (seasonEndsAtEpochMs <= seasonStartedAtEpochMs) seasonEndsAtEpochMs = computeSeasonEnd(seasonStartedAtEpochMs);
+    }
+
+    private static long computeSeasonEnd(long startMs) {
+        ZoneId zone = ZoneId.systemDefault();
+        ZonedDateTime start = Instant.ofEpochMilli(startMs).atZone(zone);
+        LocalDate endDate = start.toLocalDate().plusDays(SEASON_LENGTH_DAYS);
+        return endDate.atTime(2, 0).atZone(zone).toInstant().toEpochMilli();
+    }
+
+    public static long getSeasonEndsAtEpochMs() {
+        ensureSeasonWindow();
+        return seasonEndsAtEpochMs;
+    }
+
+    public static String getSeasonEndDisplay() {
+        ensureSeasonWindow();
+        return Instant.ofEpochMilli(seasonEndsAtEpochMs).atZone(ZoneId.systemDefault())
+                .format(DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a z"));
     }
 
     private static void archivePlayer(

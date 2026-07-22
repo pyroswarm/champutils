@@ -4,6 +4,8 @@ import com.champutils.adventureguide.AdventureGuideManager;
 import com.champutils.auction.AuctionPokemonSerializer;
 import com.champutils.dex.TrueCaughtDexManager;
 import com.champutils.matchmaking.PokemonIconUtil;
+import com.champutils.item.BottleCapItemManager;
+import com.champutils.item.BottleCapItemManager.CapType;
 import com.champutils.profession.ProfessionFragmentManager;
 import com.champutils.rank.RankedTokenConfig;
 import com.champutils.rank.RankedTokenManager;
@@ -140,30 +142,8 @@ public final class RankedShopMenu {
     }
 
     private static ItemStack bottleCapStack(String id, int amount) {
-        String path = normalizedPath(id);
-        if (path.isBlank()) return ItemStack.EMPTY;
-
-        if (path.equals("gold_bottle_cap") || path.equals("golden_bottle_cap")) {
-            ItemStack stack = new ItemStack(Items.PAPER, Math.max(1, amount));
-            stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(2));
-            stack.set(DataComponents.CUSTOM_NAME, Component.literal("Golden Bottle Cap").withStyle(ChatFormatting.GOLD));
-            stack.set(DataComponents.LORE, new ItemLore(List.of(Component.literal("Utility Items").withStyle(ChatFormatting.BLUE))));
-            return stack;
-        }
-
-        SilverBottleCap silver = silverBottleCap(path);
-        if (silver != null) {
-            ItemStack stack = new ItemStack(Items.PAPER, Math.max(1, amount));
-            stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(1));
-            stack.set(DataComponents.CUSTOM_NAME, Component.literal(silver.requiredName));
-            stack.set(DataComponents.LORE, new ItemLore(List.of(
-                    Component.literal(silver.displayName).withStyle(ChatFormatting.GRAY),
-                    Component.literal("Utility Items").withStyle(ChatFormatting.BLUE)
-            )));
-            return stack;
-        }
-
-        return ItemStack.EMPTY;
+        CapType type = BottleCapItemManager.fromConfiguredId(id);
+        return type == null ? ItemStack.EMPTY : BottleCapItemManager.create(type, Math.max(1, amount));
     }
 
     private record SilverBottleCap(String requiredName, String displayName) {}
@@ -188,7 +168,8 @@ public final class RankedShopMenu {
 
     private static Item resolveItem(String id) {
         try {
-            if (!bottleCapStack(id, 1).isEmpty()) return Items.PAPER;
+            CapType capType = BottleCapItemManager.fromConfiguredId(id);
+            if (capType != null) return BuiltInRegistries.ITEM.get(ResourceLocation.parse(BottleCapItemManager.configuredId(capType)));
             return BuiltInRegistries.ITEM.get(ResourceLocation.parse(id));
         } catch (Throwable ignored) { return Items.AIR; }
     }

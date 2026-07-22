@@ -68,11 +68,10 @@ public final class IslanderMineConfig {
 
         /**
          * Ore pocket start chance per scanned block, out of 10,000.
-         * Higher = denser mines. Islander mines are intentionally very ore-rich
-         * because this is the main contained resource loop for islander profiles.
-         * This still creates pockets, not random single-block ore confetti.
+         * Higher = denser mines. The default is intentionally sparse so islander
+         * mining remains useful without flooding the economy with high-tier ore.
          */
-        public int orePocketStartChancePer10000 = 4500;
+        public int orePocketStartChancePer10000 = 650;
 
         /** Shared mine dimensions are named like islander_mine_1, islander_mine_2, etc. */
         public String worldPrefix = "islander_mine_";
@@ -99,26 +98,26 @@ public final class IslanderMineConfig {
             Data d = new Data();
             d.blocksPerTick = 12000;
             d.generationMaxMillisPerTick = 2;
-            d.orePocketStartChancePer10000 = 4500;
-            d.ores.put("minecraft:coal_ore", new OreRule(300, 20, 48, 12, 136, false));
-            d.ores.put("minecraft:deepslate_coal_ore", new OreRule(160, 12, 32, 0, 52, false));
-            d.ores.put("minecraft:copper_ore", new OreRule(290, 20, 46, 16, 136, false));
-            d.ores.put("minecraft:deepslate_copper_ore", new OreRule(170, 12, 32, 0, 60, false));
-            d.ores.put("minecraft:iron_ore", new OreRule(340, 20, 48, 4, 132, false));
-            d.ores.put("minecraft:deepslate_iron_ore", new OreRule(260, 14, 40, 0, 76, false));
-            d.ores.put("minecraft:gold_ore", new OreRule(190, 12, 34, 0, 88, false));
-            d.ores.put("minecraft:deepslate_gold_ore", new OreRule(170, 10, 30, 0, 64, false));
-            d.ores.put("minecraft:redstone_ore", new OreRule(220, 12, 36, 0, 64, false));
-            d.ores.put("minecraft:deepslate_redstone_ore", new OreRule(210, 12, 34, 0, 56, false));
-            d.ores.put("minecraft:lapis_ore", new OreRule(160, 10, 30, 0, 84, false));
-            d.ores.put("minecraft:deepslate_lapis_ore", new OreRule(145, 8, 26, 0, 58, false));
-            d.ores.put("minecraft:diamond_ore", new OreRule(95, 6, 18, 0, 48, false));
-            d.ores.put("minecraft:deepslate_diamond_ore", new OreRule(90, 5, 16, 0, 42, false));
-            d.ores.put("minecraft:emerald_ore", new OreRule(55, 4, 12, 4, 96, false));
-            d.ores.put("minecraft:deepslate_emerald_ore", new OreRule(42, 3, 10, 0, 44, false));
-            d.ores.put("minecraft:nether_quartz_ore", new OreRule(210, 14, 38, 0, 110, false));
-            d.ores.put("minecraft:nether_gold_ore", new OreRule(170, 10, 30, 0, 90, false));
-            d.ores.put("minecraft:ancient_debris", new OreRule(8, 1, 1, 0, 28, true));
+            d.orePocketStartChancePer10000 = 650;
+            d.ores.put("minecraft:coal_ore", new OreRule(360, 8, 18, 12, 136, false));
+            d.ores.put("minecraft:deepslate_coal_ore", new OreRule(180, 6, 14, 0, 52, false));
+            d.ores.put("minecraft:copper_ore", new OreRule(320, 8, 16, 16, 136, false));
+            d.ores.put("minecraft:deepslate_copper_ore", new OreRule(180, 6, 12, 0, 60, false));
+            d.ores.put("minecraft:iron_ore", new OreRule(320, 6, 12, 4, 132, false));
+            d.ores.put("minecraft:deepslate_iron_ore", new OreRule(240, 5, 10, 0, 76, false));
+            d.ores.put("minecraft:gold_ore", new OreRule(55, 2, 6, 0, 88, false));
+            d.ores.put("minecraft:deepslate_gold_ore", new OreRule(45, 2, 5, 0, 64, false));
+            d.ores.put("minecraft:redstone_ore", new OreRule(180, 4, 9, 0, 64, false));
+            d.ores.put("minecraft:deepslate_redstone_ore", new OreRule(170, 4, 8, 0, 56, false));
+            d.ores.put("minecraft:lapis_ore", new OreRule(80, 2, 6, 0, 84, false));
+            d.ores.put("minecraft:deepslate_lapis_ore", new OreRule(70, 2, 5, 0, 58, false));
+            d.ores.put("minecraft:diamond_ore", new OreRule(12, 1, 3, 0, 48, false));
+            d.ores.put("minecraft:deepslate_diamond_ore", new OreRule(11, 1, 3, 0, 42, false));
+            d.ores.put("minecraft:emerald_ore", new OreRule(10, 1, 2, 4, 96, false));
+            d.ores.put("minecraft:deepslate_emerald_ore", new OreRule(8, 1, 2, 0, 44, false));
+            d.ores.put("minecraft:nether_quartz_ore", new OreRule(120, 4, 10, 0, 110, false));
+            d.ores.put("minecraft:nether_gold_ore", new OreRule(35, 2, 5, 0, 90, false));
+            d.ores.put("minecraft:ancient_debris", new OreRule(1, 1, 1, 0, 28, true));
             return d;
         }
 
@@ -136,10 +135,9 @@ public final class IslanderMineConfig {
             if (blocksPerTick > 25000) blocksPerTick = 25000;
             if (generationMaxMillisPerTick < 1) generationMaxMillisPerTick = 2;
             if (generationMaxMillisPerTick > 10) generationMaxMillisPerTick = 10;
-            if (orePocketStartChancePer10000 <= 0) orePocketStartChancePer10000 = 4500;
-            // Older configs were capped at 1000, which made the islander mine feel nearly empty.
-            // Treat those legacy values as under-tuned and upgrade them to the new rich mine default.
-            if (orePocketStartChancePer10000 <= 1000) orePocketStartChancePer10000 = 4500;
+            if (orePocketStartChancePer10000 <= 0) orePocketStartChancePer10000 = 650;
+            // Migrate the previous extremely rich default to the new economy-safe density.
+            if (orePocketStartChancePer10000 >= 4000) orePocketStartChancePer10000 = 650;
             if (orePocketStartChancePer10000 < 25) orePocketStartChancePer10000 = 25;
             if (orePocketStartChancePer10000 > 9000) orePocketStartChancePer10000 = 9000;
             if (worldPrefix == null || worldPrefix.isBlank()) worldPrefix = "islander_mine_";
@@ -175,9 +173,29 @@ public final class IslanderMineConfig {
             for (Map.Entry<String, OreRule> entry : defaults().ores.entrySet()) {
                 ores.putIfAbsent(entry.getKey(), entry.getValue());
             }
+            applyEconomySafeRareOreCaps(ores);
             ores.entrySet().removeIf(e -> e.getKey() == null || e.getKey().isBlank() || e.getValue() == null || e.getValue().weight <= 0);
             if (ores.isEmpty()) ores = defaults().ores;
             for (OreRule rule : ores.values()) rule.normalize();
+        }
+
+        private static void applyEconomySafeRareOreCaps(Map<String, OreRule> ores) {
+            cap(ores, "minecraft:gold_ore", 55, 2, 6);
+            cap(ores, "minecraft:deepslate_gold_ore", 45, 2, 5);
+            cap(ores, "minecraft:nether_gold_ore", 35, 2, 5);
+            cap(ores, "minecraft:diamond_ore", 12, 1, 3);
+            cap(ores, "minecraft:deepslate_diamond_ore", 11, 1, 3);
+            cap(ores, "minecraft:emerald_ore", 10, 1, 2);
+            cap(ores, "minecraft:deepslate_emerald_ore", 8, 1, 2);
+            cap(ores, "minecraft:ancient_debris", 1, 1, 1);
+        }
+
+        private static void cap(Map<String, OreRule> ores, String id, int maxWeight, int minSize, int maxSize) {
+            OreRule rule = ores.get(id);
+            if (rule == null) return;
+            rule.weight = Math.min(rule.weight, maxWeight);
+            rule.minPocketSize = Math.min(rule.minPocketSize, minSize);
+            rule.maxPocketSize = Math.min(rule.maxPocketSize, maxSize);
         }
     }
 

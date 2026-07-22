@@ -83,7 +83,11 @@ public final class MegaBossBattleListener {
         BattleContextManager.clearContext(player.getUUID());
         if (bossUuid == null) return;
 
-        // Remove snapshots only when no online player still points at this boss.
+        // Leaving by teleport, disconnect, or profile transfer is a forfeit. Remove the
+        // encounter immediately so the boss cannot remain behind as a ghost entity.
+        Entity boss = findEntityByUuid(List.of(player), bossUuid);
+        if (boss != null) MegaBossManager.discardBoss(boss);
+
         if (!ACTIVE_PLAYER_BOSS.containsValue(bossUuid)) {
             ACTIVE_BATTLE_BOSS.entrySet().removeIf(entry -> entry.getValue() != null && bossUuid.equals(entry.getValue().bossUuid()));
         }
@@ -128,6 +132,7 @@ public final class MegaBossBattleListener {
                 if (!(playerActor.getEntity() instanceof ServerPlayer player)) continue;
                 ACTIVE_PLAYER_BOSS.put(player.getUUID(), boss.getUUID());
                 BattleContextManager.setContext(player.getUUID(), BattleContextManager.BattleType.MEGA_BOSS);
+                com.champutils.adventureguide.AdventureGuideManager.increment(player, "boss_event", 1);
                 player.sendSystemMessage(Component.literal("§5§lMega Boss Challenge! §cThis Pokémon cannot be caught. Defeat it for credits, extra Battling XP, and a chance at its Mega Stone."));
             }
         }

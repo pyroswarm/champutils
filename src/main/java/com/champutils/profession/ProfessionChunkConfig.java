@@ -30,9 +30,9 @@ public final class ProfessionChunkConfig {
         public String essenceRarity = "";
         public double sellCredits = 1.0D;
         public int chunksPerFragment = 1;
-        public int chunksPerEssence = 0;
+        public int chunksPerEssence = 1;
         public int fragmentsPerTrade = 1;
-        public int essencePerTrade = 0;
+        public int essencePerTrade = 1;
     }
 
     public static class ActivityData {
@@ -101,12 +101,12 @@ public final class ProfessionChunkConfig {
             if (data.fragmentRarity == null || data.fragmentRarity.isBlank()) data.fragmentRarity = "F";
             data.essenceRarity = data.fragmentRarity;
             data.sellCredits = Math.max(0.0D, data.sellCredits);
-            if (data.chunksPerFragment <= 0 && data.chunksPerEssence > 0) data.chunksPerFragment = data.chunksPerEssence;
-            data.chunksPerFragment = Math.max(1, data.chunksPerFragment);
-            data.chunksPerEssence = data.chunksPerFragment;
-            if (data.fragmentsPerTrade <= 0 && data.essencePerTrade > 0) data.fragmentsPerTrade = data.essencePerTrade;
-            data.fragmentsPerTrade = Math.max(1, data.fragmentsPerTrade);
-            data.essencePerTrade = data.fragmentsPerTrade;
+            // Chunk-to-essence trades are intentionally fixed at 1:1 for every rarity, including A and S.
+            // Keep the legacy alias fields synchronized so old configs and menu code cannot reintroduce tier costs.
+            data.chunksPerFragment = 1;
+            data.chunksPerEssence = 1;
+            data.fragmentsPerTrade = 1;
+            data.essencePerTrade = 1;
         }
         for (ActivityData activity : CONFIG.activities.values()) {
             if (activity == null) continue;
@@ -130,7 +130,8 @@ public final class ProfessionChunkConfig {
         addChunk(root, "COPPER", "Copper Chunk", "E", 10.0D);
         addChunk(root, "IRON", "Iron Chunk", "D", 25.0D);
         addChunk(root, "GOLD", "Gold Chunk", "C", 100.0D);
-        addChunk(root, "DIAMOND", "Diamond Chunk", "A", 300.0D);
+        addChunk(root, "EMERALD", "Emerald Chunk", "B", 250.0D);
+        addChunk(root, "DIAMOND", "Diamond Chunk", "A", 500.0D);
         addChunk(root, "NETHERITE", "Netherite Chunk", "S", 1000.0D);
 
         // Each chunk rolls independently. These odds are tuned around action speed:
@@ -159,8 +160,14 @@ public final class ProfessionChunkConfig {
         addRoll(activity, "COPPER", 0.050D, 0.08000D, 8.0D, 1, 1);
         addRoll(activity, "IRON", 0.010D, 0.03500D, 3.5D, 15, 15);
         addRoll(activity, "GOLD", 0.004D, 0.01800D, 1.5D, 25, 25);
-        addRoll(activity, "DIAMOND", 0.0015D, 0.00800D, 0.65D, 40, 40);
-        addRoll(activity, "NETHERITE", 0.040D, 0.00080D, 0.080D, 50, 50);
+        addRoll(activity, "EMERALD", 0.0015D, 0.00700D, 0.60D, 40, 40);
+        addRoll(activity, "DIAMOND", 0.0005D, 0.00250D, 0.22D, 55, 55);
+        if ("BATTLING".equals(id)) {
+            // 0.4% effective at Battling 100 before mastery/Chunky Brick: one per 250 eligible battles on average.
+            addRoll(activity, "NETHERITE", 0.00005D, 0.000442597547380156D, 0.006688963210702341D, 85, 85);
+        } else {
+            addRoll(activity, "NETHERITE", 0.00005D, 0.00018D, 0.018D, 85, 85);
+        }
         root.activities.put(id, activity);
     }
 

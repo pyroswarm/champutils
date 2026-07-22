@@ -17,6 +17,7 @@ import com.champutils.profession.ProfessionChunkConfig;
 import com.champutils.profession.ProfessionChunkManager;
 import com.champutils.profession.ProfessionToolConfig;
 import com.champutils.breeding.BreedingConfig;
+import com.champutils.breeding.BreedingProfessionService;
 
 import java.util.List;
 import java.util.Map;
@@ -58,11 +59,12 @@ public final class ProfessionsMenu {
                     .hideDefaultTooltip()
                     .setName(Component.literal(name + " §7Lv. " + level))
                     .addLoreLine(Component.literal("§7XP: §f" + xp + "§7/§f" + next))
+                    .addLoreLine(Component.literal("§7Breeding Mastery: §dLv. " + BreedingProfessionService.currentBreedingMasteryLevel(player)))
                     .addLoreLine(Component.literal("§7Earn XP by hatching Eggs."))
-                    .addLoreLine(Component.literal("§7Lv. 100 extra perfect IV: §a" + pct(cfg.breedingLevel100ExtraPerfectIvChancePercent)))
-                    .addLoreLine(Component.literal("§7Lv. 100 Hidden Ability bonus: §d+" + pct(cfg.breedingLevel100HiddenAbilityBonusPercent)))
-                    .addLoreLine(Component.literal("§7Lv. 100 shiny bonus: §e+" + pct(cfg.breedingLevel100ShinyRelativeBonusPercent) + " relative"))
-                    .addLoreLine(Component.literal("§7Every hatch awards a chunk."))
+                    .addLoreLine(Component.literal("§7Current extra perfect IV: §a" + pct(BreedingProfessionService.currentExtraPerfectIvChancePercent(player))))
+                    .addLoreLine(Component.literal("§7Current Ditto Egg HA chance: §d" + pct(BreedingProfessionService.currentDittoHiddenAbilityChancePercent(player))))
+                    .addLoreLine(Component.literal("§7Current extra shiny chance: §e" + formatEffectiveChance(BreedingProfessionService.currentShinyBonusChancePercent(player))))
+                    .addLoreLine(Component.literal("§7Every hatch awards one unlocked chunk."))
                     .addLoreLine(Component.literal("§eClick for details"))
                     .setCallback((i, c, t) -> openDetails(player, profession));
             gui.setSlot(slot, breeding);
@@ -136,6 +138,80 @@ public final class ProfessionsMenu {
         gui.open();
     }
 
+    public static void openBreedingMasteries(ServerPlayer player) {
+        SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x4, player);
+        gui.setTitle(Component.literal("Breeding Type Masteries"));
+
+        ProfessionDataManager.ProfessionData data = ProfessionManager.getData(player);
+        ProfessionDataManager.ensureProfessionDefaults(data);
+        List<String> types = List.of(
+                "normal", "fire", "water", "electric", "grass", "ice",
+                "fighting", "poison", "ground", "flying", "psychic", "bug",
+                "rock", "ghost", "dragon", "dark", "steel", "fairy"
+        );
+
+        for (int slot = 0; slot < types.size(); slot++) {
+            String type = types.get(slot);
+            String key = ProfessionSubLevelManager.key(ProfessionType.BREEDING, "TYPE", type);
+            ProfessionDataManager.ProfessionData.SubLevelData mastery = data.sublevels.get(key);
+            int level = mastery == null ? 0 : Math.max(1, Math.min(100, mastery.level));
+            int xp = mastery == null ? 0 : Math.max(0, mastery.xp);
+
+            GuiElementBuilder builder = new GuiElementBuilder(breedingTypeIcon(type))
+                    .hideDefaultTooltip()
+                    .setName(Component.literal("§d" + prettyType(type) + " Mastery §7Lv. " + level));
+            if (level >= 100) {
+                builder.addLoreLine(Component.literal("§6Mastered"));
+            } else if (level <= 0) {
+                builder.addLoreLine(Component.literal("§8Not discovered yet"));
+                builder.addLoreLine(Component.literal("§7Hatch a " + prettyType(type) + "-type Pokémon"));
+                builder.addLoreLine(Component.literal("§7to begin this mastery."));
+            } else {
+                builder.addLoreLine(Component.literal("§7XP: §f" + xp + "§7/§f" + ProfessionSubLevelManager.xpRequired(level)));
+                builder.addLoreLine(Component.literal("§7Hatch this Pokémon type"));
+                builder.addLoreLine(Component.literal("§7to gain mastery XP."));
+            }
+            gui.setSlot(slot, builder);
+        }
+
+        gui.setSlot(27, new GuiElementBuilder(Items.BOOK)
+                .hideDefaultTooltip()
+                .setName(Component.literal("§dCombined Breeding Mastery"))
+                .addLoreLine(Component.literal("§7Average level: §d" + BreedingProfessionService.currentBreedingMasteryLevel(player)))
+                .addLoreLine(Component.literal("§8Individual type levels affect eggs"))
+                .addLoreLine(Component.literal("§8matching those Pokémon types.")));
+        MenuUtil.addBackButton(gui, 31, () -> openDetails(player, ProfessionType.BREEDING));
+        gui.open();
+    }
+
+    private static String prettyType(String type) {
+        if (type == null || type.isBlank()) return "Unknown";
+        return Character.toUpperCase(type.charAt(0)) + type.substring(1).toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private static Item breedingTypeIcon(String type) {
+        return switch (type) {
+            case "fire" -> Items.BLAZE_POWDER;
+            case "water" -> Items.WATER_BUCKET;
+            case "electric" -> Items.LIGHTNING_ROD;
+            case "grass" -> Items.OAK_LEAVES;
+            case "ice" -> Items.PACKED_ICE;
+            case "fighting" -> Items.IRON_SWORD;
+            case "poison" -> Items.SPIDER_EYE;
+            case "ground" -> Items.DIRT;
+            case "flying" -> Items.FEATHER;
+            case "psychic" -> Items.ENDER_EYE;
+            case "bug" -> Items.HONEYCOMB;
+            case "rock" -> Items.STONE;
+            case "ghost" -> Items.SOUL_LANTERN;
+            case "dragon" -> Items.DRAGON_BREATH;
+            case "dark" -> Items.BLACK_DYE;
+            case "steel" -> Items.IRON_INGOT;
+            case "fairy" -> Items.PINK_DYE;
+            default -> Items.EGG;
+        };
+    }
+
     private static Item iconFor(String key) {
         String raw = rawId(key);
         Item direct = item(raw);
@@ -203,27 +279,31 @@ public final class ProfessionsMenu {
         } else if (profession == ProfessionType.BREEDING) {
             int level = ProfessionManager.getLevel(player, profession);
             int xp = ProfessionManager.getXp(player, profession);
-            BreedingConfig.Values cfg = BreedingConfig.get();
             MenuUtil.addInfoCard(gui, 10, Items.EGG, "§dBreeding Progress",
                     "§7Level: §f" + level,
                     "§7XP: §f" + xp + "§7/§f" + ProfessionManager.xpRequired(level),
+                    "§7Breeding Mastery: §dLv. " + BreedingProfessionService.currentBreedingMasteryLevel(player),
                     "§7XP comes from hatching Eggs.",
                     "§7Rarer hatchlings give more XP.");
             MenuUtil.addInfoCard(gui, 12, Items.DIAMOND, "§bEgg Quality",
-                    "§7Ditto + Ditto can hatch a",
-                    "§7random eligible base-stage Pokémon.",
-                    "§7Higher levels improve rare-pool odds.",
-                    "§7Lv. 100 extra perfect IV: §a" + pct(cfg.breedingLevel100ExtraPerfectIvChancePercent));
-            MenuUtil.addInfoCard(gui, 14, Items.ENCHANTED_BOOK, "§5Rare Traits",
-                    "§7Lv. 100 Hidden Ability bonus: §d+" + pct(cfg.breedingLevel100HiddenAbilityBonusPercent),
-                    "§7Lv. 100 shiny bonus: §e+" + pct(cfg.breedingLevel100ShinyRelativeBonusPercent) + " relative",
-                    "§8Bonuses scale gradually and",
-                    "§8soft-cap at level 100.");
-            MenuUtil.addInfoCard(gui, 16, Items.NETHERITE_SCRAP, "§6Hatch Rewards",
-                    "§7Every Egg gives one digital chunk.",
-                    "§7Chunk rarity improves with level.",
-                    "§7At level 100, Netherite is 2%.",
-                    "§7Use §f/chunks §7to view rewards.");
+                    "§7Current extra perfect IV chance:",
+                    "§a" + pct(BreedingProfessionService.currentExtraPerfectIvChancePercent(player)),
+                    "§7Ditto Egg Hidden Ability chance:",
+                    "§d" + pct(BreedingProfessionService.currentDittoHiddenAbilityChancePercent(player)));
+            MenuUtil.addInfoCard(gui, 14, Items.ENCHANTED_BOOK, "§5Shiny Bonus",
+                    "§7Current extra shiny chance:",
+                    "§e" + formatEffectiveChance(BreedingProfessionService.currentShinyBonusChancePercent(player)),
+                    "§8This is the additional independent",
+                    "§8profession/mastery shiny roll.");
+            MenuUtil.addInfoCard(gui, 16, Items.NETHERITE_SCRAP, "§6Hatch Chunk Odds",
+                    chunkRollLines(player, profession));
+            gui.setSlot(30, new GuiElementBuilder(Items.EXPERIENCE_BOTTLE)
+                    .hideDefaultTooltip()
+                    .setName(Component.literal("§dView Type Masteries"))
+                    .addLoreLine(Component.literal("§7View every Pokémon-type mastery,"))
+                    .addLoreLine(Component.literal("§7including level and XP progress."))
+                    .addLoreLine(Component.literal("§eClick to open"))
+                    .setCallback((i, c, t) -> openBreedingMasteries(player)));
         } else {
             int level = ProfessionManager.getLevel(player, profession);
             int xp = ProfessionManager.getXp(player, profession);
@@ -235,7 +315,7 @@ public final class ProfessionsMenu {
                     "§7Sublevel find bonus: §a+" + pct(findBonus),
                     "§7Sublevel rarity bonus: §d+" + pct(rarityBonus));
             MenuUtil.addInfoCard(gui, 12, Items.AMETHYST_SHARD, "§dChunk Rolls",
-                    chunkRollLines(profession));
+                    chunkRollLines(player, profession));
             MenuUtil.addInfoCard(gui, 14, Items.EXPERIENCE_BOTTLE, "§aLevel Scaling",
                     "§7Overall levels now matter more.",
                     "§7Each profession level adds +0.5%",
@@ -291,8 +371,20 @@ public final class ProfessionsMenu {
         return "Base x" + String.format(java.util.Locale.US, "%.2f", activity.activityMultiplier) + " · " + activity.rolls.size() + " rarities";
     }
 
-    private static String[] chunkRollLines(ProfessionType profession) {
-        if (profession == ProfessionType.BREEDING) return new String[]{"§7One guaranteed chunk per hatch.", "§7Rarity scales with Breeding level.", "§7Level 100 Netherite chance: §d2.00%"};
+    private static String[] chunkRollLines(ServerPlayer player, ProfessionType profession) {
+        if (profession == ProfessionType.BREEDING) {
+            java.util.List<String> lines = new java.util.ArrayList<>();
+            lines.add("§7One guaranteed chunk per hatch.");
+            for (String key : java.util.List.of("COBBLESTONE", "COPPER", "IRON", "GOLD", "EMERALD", "DIAMOND", "NETHERITE")) {
+                int unlock = BreedingProfessionService.breedingChunkUnlockLevel(key);
+                boolean unlocked = ProfessionManager.getLevel(player, ProfessionType.BREEDING) >= unlock;
+                String value = unlocked
+                        ? formatEffectiveChance(BreedingProfessionService.breedingChunkChancePercent(player, key))
+                        : "§cLocked until level " + unlock;
+                lines.add("§7" + ProfessionChunkManager.formatChunk(key) + ": §f" + value);
+            }
+            return lines.toArray(new String[0]);
+        }
         ProfessionChunkConfig.ActivityData activity = ProfessionChunkConfig.CONFIG.activities.get(profession.name());
         if (activity == null || activity.rolls == null || activity.rolls.isEmpty()) return new String[]{"§7No chunk rewards yet."};
         java.util.List<String> lines = new java.util.ArrayList<>();
@@ -300,7 +392,11 @@ public final class ProfessionsMenu {
         for (var entry : activity.rolls.entrySet()) {
             ProfessionChunkConfig.RollData roll = entry.getValue();
             if (roll == null) continue;
-            lines.add("§7" + ProfessionChunkManager.formatChunk(entry.getKey()) + ": §f" + pct(roll.baseChancePercent) + " §8+" + pct(roll.chancePerLevelPercent) + "/lvl, cap " + pct(roll.maxChancePercent));
+            ProfessionChunkManager.ChunkChance chance = ProfessionChunkManager.calculateChance(player, profession, entry.getKey());
+            String value = chance.unlocked()
+                    ? formatEffectiveChance(chance.effectiveChancePercent()) + " §8actual per eligible action"
+                    : "§cLocked until level " + chance.unlockLevel();
+            lines.add("§7" + ProfessionChunkManager.formatChunk(entry.getKey()) + ": §f" + value);
             if (lines.size() >= 8) break;
         }
         return lines.toArray(new String[0]);
@@ -313,5 +409,12 @@ public final class ProfessionsMenu {
 
     private static String pct(double value) {
         return String.format(java.util.Locale.US, "%.2f%%", value);
+    }
+
+    private static String formatEffectiveChance(double percent) {
+        double safe = Math.max(0.0D, percent);
+        if (safe >= 1.0D) return String.format(java.util.Locale.US, "%.2f%%", safe);
+        if (safe >= 0.01D) return String.format(java.util.Locale.US, "%.4f%%", safe);
+        return String.format(java.util.Locale.US, "%.6f%%", safe);
     }
 }

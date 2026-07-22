@@ -271,7 +271,7 @@ public class ProfileMenu {
                         .hideDefaultTooltip()
                         .setName(
                                 Component.literal(
-                                        "§6Claim Rewards"
+                                        "§6Claim Season Rewards"
                                 )
                         )
                         .addLoreLine(
@@ -280,13 +280,7 @@ public class ProfileMenu {
                                 )
                         )
                         .setCallback(
-                                (i,c,t)->
-                                        player.getServer()
-                                                .getCommands()
-                                                .performPrefixedCommand(
-                                                        player.createCommandSourceStack(),
-                                                        "claimseasonrewards"
-                                                )
+                                (i,c,t)-> SeasonRewardsMenu.open(player)
                         )
         );
 

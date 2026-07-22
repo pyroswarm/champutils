@@ -13,6 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.BoatItem;
 import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
@@ -71,9 +72,9 @@ public final class TerritoryProtectionListener {
                 return InteractionResult.FAIL;
             }
 
-            if (stack.getItem() instanceof BlockItem && !TerritoryRepository.canBuild(serverPlayer, territory)) {
+            if ((stack.getItem() instanceof BlockItem || stack.getItem() instanceof BoatItem) && !TerritoryRepository.canBuild(serverPlayer, territory)) {
                 IslanderDebugManager.log(serverPlayer, "protect.useBlock", territory, "DENY", "place_block_canBuild_false");
-                deny(serverPlayer, "You cannot place blocks in " + territory.ownerName + "'s territory.");
+                deny(serverPlayer, "You cannot place blocks or boats in " + territory.ownerName + "'s territory.");
                 return InteractionResult.FAIL;
             }
 

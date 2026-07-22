@@ -411,8 +411,14 @@ public final class ProfessionToolRollService {
             // Roll uniformly across the configured numeric range. The previous whole-number
             // flooring collapsed narrow ranges (for example 0.0-1.0) into only two outcomes and
             // badly distorted both average power and displayed quality.
-            double value = min == max ? min : min + (RANDOM.nextDouble() * (max - min));
-            value = Math.round(value * 100.0D) / 100.0D;
+            double value;
+            if ("efficiencyLevel".equals(statId)) {
+                // Efficiency is a discrete enchantment level. Never display misleading partial rolls.
+                value = min == max ? min : (RANDOM.nextBoolean() ? min : max);
+            } else {
+                value = min == max ? min : min + (RANDOM.nextDouble() * (max - min));
+                value = Math.round(value * 100.0D) / 100.0D;
+            }
 
             rolledStats.put(
                     statId,

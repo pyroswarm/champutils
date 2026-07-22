@@ -1,5 +1,6 @@
 package com.champutils.profile;
 
+import com.champutils.breeding.BreedingEggData;
 import com.cobblemon.mod.common.api.types.ElementalType;
 import com.cobblemon.mod.common.api.types.ElementalTypes;
 import com.cobblemon.mod.common.pokemon.Pokemon;
@@ -37,7 +38,7 @@ public final class ProfileRestrictions {
         if (required == null || required.isBlank()) return null;
 
         for (Pokemon pokemon : partyPokemon) {
-            if (pokemon == null) continue;
+            if (pokemon == null || BreedingEggData.isEgg(pokemon)) continue;
             if (!hasType(pokemon, required)) {
                 String name = pokemon.getSpecies() == null ? "A Pokémon" : pokemon.getSpecies().getName();
                 return "Monotype profile requires every battle Pokémon to include " + normalizeTypeName(required) + " type. Invalid: " + name;

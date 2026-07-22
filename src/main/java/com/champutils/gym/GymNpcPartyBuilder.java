@@ -518,11 +518,12 @@ public class GymNpcPartyBuilder {
         if (compact.isBlank()) compact = "mewtwo";
 
         return switch (compact) {
-            case "rotomwash" -> new SpeciesForm(namespace + ":rotom", "wash");
-            case "rotomheat" -> new SpeciesForm(namespace + ":rotom", "heat");
-            case "rotomfrost" -> new SpeciesForm(namespace + ":rotom", "frost");
-            case "rotommow" -> new SpeciesForm(namespace + ":rotom", "mow");
-            case "rotomfan" -> new SpeciesForm(namespace + ":rotom", "fan");
+            case "rotom" -> new SpeciesForm(namespace + ":mismagius", null);
+            case "rotomwash" -> new SpeciesForm(namespace + ":lanturn", null);
+            case "rotomheat" -> new SpeciesForm(namespace + ":magmortar", null);
+            case "rotomfrost" -> new SpeciesForm(namespace + ":froslass", null);
+            case "rotommow" -> new SpeciesForm(namespace + ":electrode", null);
+            case "rotomfan" -> new SpeciesForm(namespace + ":kilowattrel", null);
             case "oricoriopompom" -> new SpeciesForm(namespace + ":oricorio", "pompom");
             case "raichualola" -> new SpeciesForm(namespace + ":raichu", "alola");
             case "mukalola" -> new SpeciesForm(namespace + ":muk", "alola");

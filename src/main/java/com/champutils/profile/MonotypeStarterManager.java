@@ -72,8 +72,9 @@ public final class MonotypeStarterManager {
                 if (entry.getValue() > tick) continue;
                 REOPEN_AT_TICK.remove(entry.getKey(), entry.getValue());
                 ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-                if (player != null && !player.hasDisconnected() && needsStarter(player)) open(player);
-                else FORCE_OPEN_UNTIL_TICK.remove(entry.getKey());
+                // Delayed forced reopens were removed; successful selection closes cleanly and
+                // players reopen explicitly with /monotypestarter if needed.
+                FORCE_OPEN_UNTIL_TICK.remove(entry.getKey());
             }
             for (var entry : new java.util.ArrayList<>(STARTER_STATE_REFRESH_AT_TICK.entrySet())) {
                 if (entry.getValue() > tick) continue;
@@ -155,9 +156,8 @@ public final class MonotypeStarterManager {
                 // party hydration may finish while that query is running.
                 boolean partyEmptyNow = isPartyEmpty(player);
                 applyCobblemonStarterState(player, safeClaimed, partyEmptyNow, monotype);
-                if (openIfNeeded && monotype && !safeClaimed && partyEmptyNow) {
-                    open(player);
-                }
+                // Starter selection is command/quest driven. Never auto-open the menu.
+                // /monotypestarter remains available only while the active monotype profile needs a starter.
             });
         });
     }
@@ -284,6 +284,7 @@ public final class MonotypeStarterManager {
             try { pokemon.heal(); } catch (Throwable ignored) {}
             player.sendSystemMessage(Component.literal("You chose " + choice.display() + " as your " + cap(required) + " starter!").withStyle(ChatFormatting.GREEN));
             player.closeContainer();
+            com.champutils.adventureguide.AdventureGuideManager.increment(player, "monotype_starter", 1);
         } catch (Throwable t) {
             t.printStackTrace();
             player.sendSystemMessage(Component.literal("Could not create that starter. Check console logs.").withStyle(ChatFormatting.RED));

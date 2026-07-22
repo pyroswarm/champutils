@@ -102,6 +102,16 @@ public class SettingsMenu {
 
         setToggle(
                 gui,
+                9,
+                "Profession Overflow Chat",
+                "Sends profession popups to chat when another popup replaces them.",
+                ProfessionNotificationSettings.areProfessionOverflowMessagesEnabled(player),
+                () -> ProfessionNotificationSettings.toggleProfessionOverflowMessages(player),
+                player
+        );
+
+        setToggle(
+                gui,
                 8,
                 "Adventure Guide Boss Bar",
                 "Shows your current Adventure Guide objective.",

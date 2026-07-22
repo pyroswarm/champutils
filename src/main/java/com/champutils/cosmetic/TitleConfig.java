@@ -23,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class TitleConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File FILE = new File("config/champutils/titles.json");
-    private static final File WORLD_FIRST_TITLES_FILE = new File("config/champutils/world-first.json");
+    private static final File WORLD_FIRST_TITLES_FILE = new File("config/champutils/world_firsts.json");
     public static Config CONFIG = new Config();
     private static final Map<String, TitleDef> BY_ID = new ConcurrentHashMap<>();
 
@@ -47,6 +47,7 @@ public final class TitleConfig {
             CONFIG = defaults();
         }
         ensureChallengeProfileTitles();
+        ensureRankSeasonTitles();
         mergeWorldFirstTitleCatalog();
         rebuildIndex();
         save();
@@ -121,6 +122,53 @@ public final class TitleConfig {
         }
     }
 
+
+    private static synchronized void ensureRankSeasonTitles() {
+        if (CONFIG == null) CONFIG = new Config();
+        if (CONFIG.titles == null) CONFIG.titles = new ArrayList<>();
+        if (com.champutils.config.Config.ranks == null) return;
+        List<com.champutils.config.Rank> ranks = new ArrayList<>(com.champutils.config.Config.ranks);
+        ranks.sort(java.util.Comparator.comparingInt(r -> r.min_elo));
+        for (int i = 0; i < ranks.size(); i++) {
+            com.champutils.config.Rank rank = ranks.get(i);
+            if (rank == null || rank.name == null || rank.name.isBlank()) continue;
+            String id = rank.name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_").replaceAll("^_+|_+$", "");
+            boolean top = i == ranks.size() - 1;
+            boolean second = i == ranks.size() - 2;
+            double battleXp = top ? 0.10D : second ? 0.075D : Math.min(0.05D, 0.01D + i * 0.0075D);
+            double pokemonXp = top ? 0.05D : second ? 0.035D : Math.min(0.025D, i * 0.004D);
+            double catchChance = top ? 0.0125D : second ? 0.008D : Math.min(0.005D, i * 0.0008D);
+            addRankTitleIfMissing("rank_reached_" + id, rank.name, "Reach " + rank.name + " rank.", rank.color, "⚔", battleXp, pokemonXp, catchChance);
+            addRankTitleIfMissing("season_finish_" + id, rank.name + " Finisher", "Finish a ranked season at " + rank.name + ".", rank.color, "♛", battleXp * 0.8D, pokemonXp * 0.8D, catchChance * 0.8D);
+            addWorldFirstRankTitleIfMissing("wf_first_rank_" + id, "First " + rank.name, "Be the first player to reach " + rank.name + ".", rank.color, "★", "first_rank_" + id,
+                    Math.min(0.12D, battleXp + 0.02D), Math.min(0.06D, pokemonXp + 0.01D), Math.min(0.015D, catchChance + 0.002D));
+        }
+    }
+
+    private static void addRankTitleIfMissing(String id, String name, String description, String color, String icon, double battleXp, double pokemonXp, double catchChance) {
+        if (CONFIG.titles.stream().anyMatch(t -> t != null && id.equalsIgnoreCase(t.id))) return;
+        TitleDef def = new TitleDef(); def.id=id; def.name=name; def.color=(color == null || color.isBlank()) ? "&6" : color; def.icon=icon;
+        def.display=def.color + "[" + icon + " " + name + "]"; def.description=description; def.scope="PROFILE"; def.category="BATTLE";
+        def.passiveDescription="Competitive progression bonuses while equipped as a subtitle.";
+        def.buffs.add(buff(com.champutils.buff.BuffType.BATTLING_XP.name(), battleXp));
+        def.buffs.add(buff(com.champutils.buff.BuffType.POKEMON_XP.name(), pokemonXp));
+        if (catchChance > 0) def.buffs.add(buff(com.champutils.buff.BuffType.CATCH_CHANCE.name(), catchChance));
+        def.unlock = new UnlockCondition(); def.unlock.type="manual"; CONFIG.titles.add(def);
+    }
+
+    private static void addWorldFirstRankTitleIfMissing(String id, String name, String description, String color, String icon, String worldFirstId, double battleXp, double pokemonXp, double catchChance) {
+        if (CONFIG.titles.stream().anyMatch(t -> t != null && id.equalsIgnoreCase(t.id))) return;
+        TitleDef def = new TitleDef(); def.id=id; def.name=name; def.color=(color == null || color.isBlank()) ? "&d" : color; def.icon=icon;
+        def.display=def.color + "[" + icon + " " + name + "]"; def.description=description; def.scope="ACCOUNT"; def.accountBound=true; def.category="WORLD_FIRST";
+        def.passiveDescription="Exclusive world-first competitive bonuses while equipped as a subtitle.";
+        def.buffs.add(buff(com.champutils.buff.BuffType.BATTLING_XP.name(), battleXp));
+        def.buffs.add(buff(com.champutils.buff.BuffType.POKEMON_XP.name(), pokemonXp));
+        if (catchChance > 0) def.buffs.add(buff(com.champutils.buff.BuffType.CATCH_CHANCE.name(), catchChance));
+        def.unlock = new UnlockCondition(); def.unlock.type="world_first"; def.unlock.worldFirstId=worldFirstId; def.unlock.worldFirstName=name; def.unlock.rewardText="exclusive title and subtitle buffs"; def.unlock.xpReward=0;
+        CONFIG.titles.add(def);
+    }
+
+    private static TitleBuff buff(String type, double amount) { TitleBuff b = new TitleBuff(); b.type=type; b.amount=amount; return b; }
 
     private static synchronized void ensureChallengeProfileTitles() {
         if (CONFIG == null) CONFIG = new Config();

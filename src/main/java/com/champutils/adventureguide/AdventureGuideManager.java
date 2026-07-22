@@ -2,6 +2,7 @@ package com.champutils.adventureguide;
 
 import com.champutils.database.SharedJsonStateRepository;
 import com.champutils.economy.EconomyManager;
+import com.champutils.guild.GuildRepository;
 import com.champutils.profession.ProfessionManager;
 import com.champutils.profile.PlayerProfileManager;
 import com.champutils.territory.TerritoryRepository;
@@ -42,6 +43,8 @@ public final class AdventureGuideManager {
             objective("talk_to_adventurer", "Talk to the Adventurer's Guild Representative", "Start here. The Adventurer's Guild is the hub for PvE, jobs, contracts, expeditions, tower runs, and server progression.", "talk_to_adventurer", 1, 250L, "The representative is inside the big utility building to the south."),
             objective("rtp_survival", "Use RTP to reach the survival world", "RTP takes you out of spawn and into the world where most gathering, battling, and exploration happens.", "rtp", 1, 250L, "Use /rtp or the Adventurer's Guild menu."),
             objective("catch_species", "Catch 5 new species of Pokemon", "The true dex tracks species progress per profile and rewards long-term collecting.", "catch_species", 5, 500L, "Catch Pokemon you have not caught on this profile before."),
+            objective("collect_cobblestone_chunks", "Collect 16 Cobblestone Chunks", "Cobblestone Chunks introduce profession drops and are the first crafting material in the profession gear loop.", "chunk_cobblestone", 16, 500L, "Use profession gear while mining, chopping, farming, breeding, fishing, or battling. Then visit the crafting NPC at /warp utility."),
+            objective("craft_e_tool_armor_trinket", "Craft E Rank profession gear", "Craft one E Rank tool, one E Rank armor piece, and one E Rank trinket to learn the profession gear triangle.", "craft_e_gear_training", 3, 750L, "Visit the profession crafting NPC at /warp utility and craft one E Rank tool, armor piece, and trinket."),
             objective("profession_intro", "Earn profession progress 25 times", "Mining, farming, forestry, and other professions reward XP when using profession gear.", "profession_action", 25, 500L, "Gather with profession tools or complete profession actions."),
             objective("guild_board", "Open the Adventurer Board", "The Adventurer Board is where repeatable tasks, PvP quests, contracts, and player guild goals live.", "guild_board", 1, 250L, "Open it from the Adventurer's Guild Representative."),
             objective("finish_contract", "Complete and claim an Adventurer Contract", "Contracts teach daily repeatable goals and help you rank up with the Adventurer's Guild.", "contract_complete", 1, 750L, "Finish the objective, then claim it from the contract menu."),
@@ -50,25 +53,36 @@ public final class AdventureGuideManager {
             objective("pokemon_hunt", "Check a Pokemon Hunt", "Hunts are repeatable catch goals tied to the Adventurer's Guild.", "pokemon_hunt", 1, 400L, "Open Hunts from the Adventurer's Guild and review your target."),
             objective("adventurer_request", "Request an Adventurer challenge", "Adventurer requests spawn a trainer in the world and are a core PvE battle loop.", "adventurer_request", 1, 750L, "Request one from the Adventurer's Guild. If you are at spawn, you will be RTP'd first."),
             objective("pvp_mission", "Play a PvP queue battle", "PvP quests are listed on the Adventurer Board, while ranked progression comes from ranked battles.", "pvp_play", 1, 750L, "Queue casual or ranked PvP."),
-            objective("battle_tower_checkpoint", "Reach Battle Tower floor 3", "The Battle Tower is a checkpoint-based PvE challenge. Rewards are paid when you clear a new checkpoint.", "battle_tower_checkpoint", 1, 1500L, "Start the Battle Tower from the Adventurer's Guild."),
             objective("join_guild", "Join or create a Player Guild", "Player Guilds are social progression groups with their own shared goals.", "guild", 1, 500L, "Use the Player Guild menu or ask another player for an invite."),
-            objective("land_claim", "Create your first Land Claim", "Claims protect builds and teach players how to safely settle in survival.", "land_claim", 1, 500L, "Use /claims and follow the claim menu."),
             objective("open_crate", "Open a Crate", "Crates and keys are reward sinks for events, quests, contracts, and progression.", "crate", 1, 500L, "Use a crate key at the crate menu/NPC."),
             objective("dex_reward", "Claim a Dex reward", "Dex rewards make catching new species valuable beyond completion percentage.", "dex_reward", 1, 750L, "Open dex rewards after catching enough Pokemon."),
-            objective("server_shop", "Open a server shop", "Server shops, Adventurer shops, and special shops explain where progression currencies are spent.", "shop", 1, 250L, "Open a shop from spawn or the Adventurer's Guild menus."),
             objective("cosmetic", "Equip a title, emblem, or chat tag", "Cosmetics show achievements without exposing backend permission details.", "cosmetic", 1, 500L, "Use the cosmetics/title/emblem menus."),
-            objective("boss_event", "Participate in a boss event", "Mega bosses and world bosses create shared server moments and high-end rewards.", "world_boss", 1, 1000L, "Join a boss fight when one announces."),
             objective("settings", "Open Settings and choose your preferences", "Settings let players control popups, scoreboard, sounds, and the Adventure Guide boss bar.", "settings", 1, 250L, "Open /menu settings."),
             objective("defeat_misty", "Defeat Misty and earn the Cascade Badge", "Gym badges unlock progression and teach the main Cobblemon battle path.", "badge_cascade", 1, 500L, "Use the Gym menu/NPC to challenge Misty."),
-            objective("collect_copper_chunks", "Collect 16 Copper Chunks", "Copper Chunks are the first real step into the E Rank profession gear loop.", "chunk_copper", 16, 500L, "Mine, chop, harvest, or battle with profession progress enabled until you find 16 Copper Chunks."),
-            objective("craft_e_tool_armor_trinket", "Craft E Rank profession gear", "Craft one E Rank tool, one E Rank armor piece, and one E Rank trinket to learn the profession gear triangle.", "craft_e_gear_training", 3, 750L, "Use /essence craft e pickaxe, /essence craft e helmet, and /essence craft e magnet or another E Rank trinket."),
+            objective("battle_tower_checkpoint", "Reach Battle Tower floor 3", "The Battle Tower is a checkpoint-based PvE challenge. Rewards are paid when you clear a new checkpoint.", "battle_tower_checkpoint", 1, 1500L, "Start the Battle Tower from the Adventurer's Guild."),
             objective("reroll_tool", "Reroll a profession tool", "Rerolling teaches how to improve a profession tool's stats before investing in higher ranks.", "tool_reroll", 1, 500L, "Hold a profession tool and use /itemroll reroll."),
             objective("salvage_common_tool", "Salvage a common profession tool", "Salvaging teaches how unwanted F Rank tools turn back into essence for future crafting.", "salvage_common_tool", 1, 500L, "Hold an F Rank/common profession tool and use /salvage."),
             objective("complete", "Adventure Guide complete", "You know the main Cobble Champs systems. Keep ranking up with the Adventurer's Guild.", "complete", 1, 2500L, "Keep playing your way.")
     );
 
+    public static final List<Objective> MONOTYPE_OBJECTIVES = buildMonotypeObjectives();
+
+    private static List<Objective> buildMonotypeObjectives() {
+        List<Objective> out = new ArrayList<>();
+        for (Objective objective : STANDARD_OBJECTIVES) {
+            out.add(objective);
+            if ("talk_to_adventurer".equals(objective.id())) {
+                out.add(objective("monotype_starter", "Choose your Monotype starter",
+                        "Use the custom starter command to choose a Pokemon matching this profile's selected type.",
+                        "monotype_starter", 1, 500L, "Type /monotypestarter and select exactly one starter."));
+            }
+        }
+        return List.copyOf(out);
+    }
+
     /** Islander progression mirrors the standard guide, but replaces wilderness RTP with territory creation. */
     public static final List<Objective> ISLANDER_OBJECTIVES = STANDARD_OBJECTIVES.stream()
+            .filter(objective -> !"auction_listing".equals(objective.id()))
             .map(objective -> switch (objective.id()) {
                 case "rtp_survival" -> objective("create_territory", "Create your Islander Territory",
                         "Your territory is your permanent Islander home and replaces the normal wilderness progression step.",
@@ -90,6 +104,12 @@ public final class AdventureGuideManager {
         if (player == null) return;
         PlayerData data = data(player);
         if (PlayerProfileManager.isIslander(player)) {
+            if (data.guideFlags.add("islander_auction_removed_v1")) {
+                int removedIndex = 6;
+                if (data.index > removedIndex) data.index--;
+                else if (data.index == removedIndex) data.progress = 0;
+                markDirty(player);
+            }
             Objective current = objectiveAt(player, data.index);
             TerritoryRepository.Territory territory = TerritoryRepository.cachedPersonal(player);
             if (current != null && "create_territory".equals(current.id()) && territory != null && territory.isReady()) {
@@ -97,6 +117,8 @@ public final class AdventureGuideManager {
                 data = data(player);
             }
         }
+        reconcileCurrentObjective(player);
+        data = data(player);
         if (data.bossBarVisible) {
             updateBossBar(player);
         }
@@ -122,6 +144,7 @@ public final class AdventureGuideManager {
         if (tickCounter % 20 == 0) {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 if (PlayerProfileManager.hasActiveProfile(player) && !PlayerProfileManager.isInMainMenu(player)) {
+                    reconcileCurrentObjective(player);
                     updateBossBar(player);
                 } else {
                     removeBossBar(player);
@@ -199,7 +222,7 @@ public final class AdventureGuideManager {
         String flag = switch (normalized) {
             case "pickaxe", "axe", "hoe", "shovel", "sword" -> "e_tool";
             case "helmet", "chestplate", "leggings", "boots" -> "e_armor";
-            case "magnet", "shiny_charm", "profession_xp_gem", "pokemon_xp_egg", "friendship_charm", "level_charm", "rare_pokemon_charm", "chunky_brick", "trinket_pouch" -> "e_trinket";
+            case "magnet", "shiny_charm", "profession_xp_gem", "pokemon_xp_egg", "friendship_charm", "level_charm", "rare_pokemon_charm", "chunky_brick", "totem_of_growth", "poke_snax", "trinket_pouch" -> "e_trinket";
             default -> null;
         };
         if (flag == null) return;
@@ -276,10 +299,10 @@ public final class AdventureGuideManager {
         if (objective.rewardCredits() > 0) {
             player.sendSystemMessage(Component.literal("§7Reward: §6" + objective.rewardCredits() + " credits"));
         }
-        if ("collect_copper_chunks".equals(objective.id())) {
+        if ("collect_cobblestone_chunks".equals(objective.id())) {
             ProfessionManager.addFragments(player, "E", 48);
             ProfessionManager.savePlayer(player);
-            player.sendSystemMessage(Component.literal("§aTraining reward: §648 E Rank Essence §7(enough to craft the guide tool, armor piece, and trinket)."));
+            player.sendSystemMessage(Component.literal("§aTraining reward: §648 E Rank Essence §7(use it at the profession crafting NPC at /warp utility)."));
         }
         data.guideFlags.clear();
         if (data.index < objectivesFor(player).size() - 1) {
@@ -293,10 +316,45 @@ public final class AdventureGuideManager {
                     increment(player, "complete", 1);
                     return;
                 }
+                if (reconcileCurrentObjective(player)) return;
             }
         }
         markDirty(player);
         updateBossBar(player);
+    }
+
+    /** Reconciles persistent state when a player reaches a guide step after already completing it. */
+    private static boolean reconcileCurrentObjective(ServerPlayer player) {
+        if (player == null || !PlayerProfileManager.hasActiveProfile(player)) return false;
+        PlayerData data = data(player);
+        Objective current = objectiveAt(player, data.index);
+        if (current == null) return false;
+
+        boolean alreadySatisfied = false;
+        if ("join_guild".equals(current.id())) {
+            GuildRepository.GuildSnapshot guild = GuildRepository.cachedGuild(player.getUUID());
+            if (guild == null) {
+                GuildRepository.loadForPlayer(player.getUUID(), player.getGameProfile().getName());
+            } else {
+                alreadySatisfied = true;
+            }
+        } else if ("create_territory".equals(current.id())) {
+            TerritoryRepository.Territory territory = TerritoryRepository.cachedPersonal(player);
+            alreadySatisfied = territory != null && territory.isReady();
+        } else if ("dex_reward".equals(current.id())) {
+            UUID profileId = PlayerProfileManager.activeProfileId(player);
+            alreadySatisfied = com.champutils.dex.DexRewardClaimData.hasAnyClaimedForProfile(profileId);
+        } else if ("collect_cobblestone_chunks".equals(current.id())) {
+            int owned = com.champutils.profession.ProfessionChunkManager.count(player, "COBBLESTONE");
+            data.progress = Math.max(data.progress, Math.min(current.target(), owned));
+            alreadySatisfied = owned >= current.target();
+        }
+
+        if (!alreadySatisfied) return false;
+        data.progress = current.target();
+        markDirty(player);
+        completeCurrent(player, data, current);
+        return true;
     }
 
     private static void updateBossBar(ServerPlayer player) {
@@ -343,6 +401,24 @@ public final class AdventureGuideManager {
         }
         if (local == null) local = new PlayerData();
         PlayerData shared = SharedJsonStateRepository.loadProfile(profileId, STATE_KEY, PlayerData.class, local);
+        if (shared == null) shared = local;
+        // Never let a stale backend snapshot move a profile backwards onto a completed objective.
+        // Merge completion history and keep the furthest valid index/progress from either copy.
+        shared.sanitize();
+        local.sanitize();
+        shared.completed.addAll(local.completed);
+        shared.guideFlags.addAll(local.guideFlags);
+        if (local.index > shared.index) {
+            shared.index = local.index;
+            shared.progress = local.progress;
+        } else if (local.index == shared.index) {
+            shared.progress = Math.max(shared.progress, local.progress);
+        }
+        while (shared.index < STANDARD_OBJECTIVES.size() - 1
+                && shared.completed.contains(STANDARD_OBJECTIVES.get(shared.index).id())) {
+            shared.index++;
+            shared.progress = 0;
+        }
         shared.sanitize();
         return shared;
     }
@@ -375,7 +451,10 @@ public final class AdventureGuideManager {
     }
 
     private static List<Objective> objectivesFor(ServerPlayer player) {
-        return player != null && PlayerProfileManager.isIslander(player) ? ISLANDER_OBJECTIVES : STANDARD_OBJECTIVES;
+        if (player == null) return STANDARD_OBJECTIVES;
+        if (PlayerProfileManager.isIslander(player)) return ISLANDER_OBJECTIVES;
+        if (PlayerProfileManager.gameMode(player) == com.champutils.profile.ProfileGameMode.MONOTYPE) return MONOTYPE_OBJECTIVES;
+        return STANDARD_OBJECTIVES;
     }
 
     private static Objective objectiveAt(ServerPlayer player, int index) {

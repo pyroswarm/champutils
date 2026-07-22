@@ -27,6 +27,7 @@ public final class ExplorationLootConfig {
             if (!FILE.exists()) {
                 data = defaults();
                 applyBetaBalance(data);
+                ensureBlazeRodsCPlus(data);
                 save();
                 return;
             }
@@ -34,6 +35,7 @@ public final class ExplorationLootConfig {
                 Data loaded = GSON.fromJson(reader, Data.class);
                 data = loaded == null ? defaults() : loaded.withDefaults();
                 applyBetaBalance(data);
+                ensureBlazeRodsCPlus(data);
             }
             save();
         } catch (Exception e) {
@@ -58,6 +60,27 @@ public final class ExplorationLootConfig {
 
     public static Data get() {
         return data.withDefaults();
+    }
+
+    private static void ensureBlazeRodsCPlus(Data root) {
+        if (root == null || root.tables == null) return;
+        for (LootTable table : root.tables.values()) {
+            if (table == null || table.items == null) continue;
+            boolean hasC = table.items.stream().anyMatch(e -> e != null && "minecraft:blaze_rod".equals(e.itemId) && rankAtLeast(e.rarity, "C"));
+            if (!hasC) {
+                table.items.add(loot("C", "minecraft:blaze_rod", 20, 1, 3));
+                table.items.add(loot("B", "minecraft:blaze_rod", 28, 2, 4));
+                table.items.add(loot("A", "minecraft:blaze_rod", 35, 3, 6));
+                table.items.add(loot("S", "minecraft:blaze_rod", 45, 4, 8));
+            }
+        }
+    }
+
+    private static boolean rankAtLeast(String rank, String minimum) {
+        String order = "FEDCBAS";
+        int actual = order.indexOf(rank == null ? "F" : rank.trim().toUpperCase(Locale.ROOT));
+        int required = order.indexOf(minimum);
+        return actual >= required;
     }
 
     private static Data defaults() {

@@ -18,7 +18,9 @@ public final class RankedTokenConfig {
     public static class Config {
         public int tokensPerRankedWin = 2;
         public int dailyTokenCap = 20;
-        public int sameOpponentCooldownHours = 1;
+        public int sameOpponentCooldownMinutes = 5;
+        /** Legacy field retained for one-load migration only. */
+        public Integer sameOpponentCooldownHours = null;
         public int immediateForfeitSeconds = 90;
         public long immediateForfeitWinnerCredits = EconomyManager.wholeCreditsToCents(25L);
         public long rankedParticipationCredits = EconomyManager.wholeCreditsToCents(75L);
@@ -46,7 +48,11 @@ public final class RankedTokenConfig {
         Config d = defaults();
         if (c.tokensPerRankedWin <= 0) c.tokensPerRankedWin = d.tokensPerRankedWin;
         if (c.dailyTokenCap <= 0) c.dailyTokenCap = d.dailyTokenCap;
-        if (c.sameOpponentCooldownHours < 0) c.sameOpponentCooldownHours = d.sameOpponentCooldownHours;
+        if (c.sameOpponentCooldownMinutes < 0) c.sameOpponentCooldownMinutes = d.sameOpponentCooldownMinutes;
+        if (c.sameOpponentCooldownHours != null && c.sameOpponentCooldownHours >= 0 && c.sameOpponentCooldownMinutes == d.sameOpponentCooldownMinutes) {
+            c.sameOpponentCooldownMinutes = Math.max(0, c.sameOpponentCooldownHours * 60);
+        }
+        c.sameOpponentCooldownHours = null;
         if (c.immediateForfeitSeconds < 15) c.immediateForfeitSeconds = d.immediateForfeitSeconds;
         if (c.immediateForfeitWinnerCredits <= 0L) c.immediateForfeitWinnerCredits = d.immediateForfeitWinnerCredits;
         if (c.rankedParticipationCredits <= 0L) c.rankedParticipationCredits = d.rankedParticipationCredits;
@@ -70,10 +76,10 @@ public final class RankedTokenConfig {
             if (entry == null || entry.item == null) continue;
             String normalized = entry.item.trim().toLowerCase().replace('-', '_');
             if (normalized.equals("cobblemon:gold_bottle_cap") || normalized.equals("cobblemon:golden_bottle_cap") || normalized.equals("bottlecaps:gold_bottle_cap")) {
-                entry.item = "bottlecaps:golden_bottle_cap";
+                entry.item = "champutils:golden_bottle_cap";
                 if (entry.displayName == null || entry.displayName.isBlank() || entry.displayName.equals(entry.item)) entry.displayName = "Golden Bottle Cap";
             } else if (normalized.equals("cobblemon:bottle_cap") || normalized.equals("cobblemon:silver_bottle_cap") || normalized.equals("bottlecaps:bottle_cap") || normalized.equals("bottlecaps:silver_bottle_cap")) {
-                entry.item = "bottlecaps:silver_bottle_cap_atk";
+                entry.item = "champutils:silver_bottle_cap_atk";
                 if (entry.displayName == null || entry.displayName.isBlank() || entry.displayName.equals(entry.item) || entry.displayName.toLowerCase().contains("silver bottle cap")) entry.displayName = "Attack Bottle Cap";
             }
         }
@@ -93,8 +99,8 @@ public final class RankedTokenConfig {
     private static String normalizeItemKey(String item) {
         if (item == null) return "";
         String value = item.trim().toLowerCase().replace('-', '_');
-        if (value.equals("cobblemon:gold_bottle_cap") || value.equals("bottlecaps:gold_bottle_cap")) return "bottlecaps:golden_bottle_cap";
-        if (value.equals("cobblemon:bottle_cap") || value.equals("cobblemon:silver_bottle_cap") || value.equals("bottlecaps:bottle_cap") || value.equals("bottlecaps:silver_bottle_cap")) return "bottlecaps:silver_bottle_cap_atk";
+        if (value.equals("cobblemon:gold_bottle_cap") || value.equals("bottlecaps:gold_bottle_cap")) return "champutils:golden_bottle_cap";
+        if (value.equals("cobblemon:bottle_cap") || value.equals("cobblemon:silver_bottle_cap") || value.equals("bottlecaps:bottle_cap") || value.equals("bottlecaps:silver_bottle_cap")) return "champutils:silver_bottle_cap_atk";
         return value;
     }
     private static Config defaults() {
@@ -102,13 +108,13 @@ public final class RankedTokenConfig {
         String[] mons = {"articuno","zapdos","moltres","mewtwo","mew","raikou","entei","suicune","lugia","ho_oh","celebi","regirock","regice","registeel","latias","latios","kyogre","groudon","rayquaza","jirachi","deoxys","uxie","mesprit","azelf","dialga","palkia","heatran","regigigas","giratina","cresselia","phione","manaphy","darkrai","shaymin","arceus","victini","cobalion","terrakion","virizion","tornadus","thundurus","reshiram","zekrom","landorus","kyurem","keldeo","meloetta","genesect","xerneas","yveltal","zygarde","diancie","hoopa","volcanion","type_null","silvally","tapu_koko","tapu_lele","tapu_bulu","tapu_fini","cosmog","cosmoem","solgaleo","lunala","necrozma","magearna","marshadow","zeraora","meltan","melmetal","zacian","zamazenta","eternatus","kubfu","urshifu","zarude","regieleki","regidrago","glastrier","spectrier","calyrex","enamorus","wo_chien","chien_pao","ting_lu","chi_yu","okidogi","munkidori","fezandipiti","ogerpon","terapagos","koraidon","miraidon","walking_wake","iron_leaves","gouging_fire","raging_bolt","iron_boulder","iron_crown","pecharunt","nihilego","buzzwole","pheromosa","xurkitree","celesteela","kartana","guzzlord","poipole","naganadel","stakataka","blacephalon","great_tusk","scream_tail","brute_bonnet","flutter_mane","slither_wing","sandy_shocks","roaring_moon","iron_treads","iron_bundle","iron_hands","iron_jugulis","iron_moth","iron_thorns","iron_valiant"};
         for (String m : mons) c.pokemon.add(new PokemonEntry(m,100));
         c.items.add(new ItemEntry("cobblemon:ability_patch","Ability Patch",25,1));
-        c.items.add(new ItemEntry("bottlecaps:silver_bottle_cap_atk","Attack Bottle Cap",10,1));
-        c.items.add(new ItemEntry("bottlecaps:silver_bottle_cap_def","Defence Bottle Cap",10,1));
-        c.items.add(new ItemEntry("bottlecaps:silver_bottle_cap_hp","HP Bottle Cap",10,1));
-        c.items.add(new ItemEntry("bottlecaps:silver_bottle_cap_sp_atk","Special Attack Bottle Cap",10,1));
-        c.items.add(new ItemEntry("bottlecaps:silver_bottle_cap_sp_def","Special Defence Bottle Cap",10,1));
-        c.items.add(new ItemEntry("bottlecaps:silver_bottle_cap_speed","Speed Bottle Cap",10,1));
-        c.items.add(new ItemEntry("bottlecaps:golden_bottle_cap","Golden Bottle Cap",25,1));
+        c.items.add(new ItemEntry("champutils:silver_bottle_cap_atk","Attack Bottle Cap",10,1));
+        c.items.add(new ItemEntry("champutils:silver_bottle_cap_def","Defence Bottle Cap",10,1));
+        c.items.add(new ItemEntry("champutils:silver_bottle_cap_hp","HP Bottle Cap",10,1));
+        c.items.add(new ItemEntry("champutils:silver_bottle_cap_sp_atk","Special Attack Bottle Cap",10,1));
+        c.items.add(new ItemEntry("champutils:silver_bottle_cap_sp_def","Special Defence Bottle Cap",10,1));
+        c.items.add(new ItemEntry("champutils:silver_bottle_cap_speed","Speed Bottle Cap",10,1));
+        c.items.add(new ItemEntry("champutils:golden_bottle_cap","Golden Bottle Cap",25,1));
         return c;
     }
 }

@@ -26,20 +26,25 @@ public class GemFinderPassive implements ProfessionPassive {
     private static final List<String> FOSSILS = List.of(
             "cobblemon:armor_fossil", "cobblemon:claw_fossil", "cobblemon:cover_fossil", "cobblemon:dome_fossil",
             "cobblemon:helix_fossil", "cobblemon:jaw_fossil", "cobblemon:old_amber_fossil", "cobblemon:plume_fossil",
-            "cobblemon:root_fossil", "cobblemon:sail_fossil", "cobblemon:skull_fossil"
+            "cobblemon:root_fossil", "cobblemon:sail_fossil", "cobblemon:skull_fossil",
+            "cobblemon:fossilized_bird", "cobblemon:fossilized_dino",
+            "cobblemon:fossilized_drake", "cobblemon:fossilized_fish"
     );
 
     @Override
     public void apply(ServerPlayer player, ItemStack stack, ServerLevel level, BlockPos pos, String blockId) {
         if (player == null || stack == null || stack.isEmpty() || level == null || pos == null) return;
         if (ProfessionBlockTracker.isPlayerPlaced(level, pos)) return;
-        boolean shovel = MiningBlockUtil.isShovelBlock(level, pos, level.getBlockState(pos));
-        if (!shovel && !isOreBlock(blockId)) {
+        boolean shovel = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath().endsWith("_shovel")
+                || ProfessionToolMetadata.getToolId(stack).toLowerCase(java.util.Locale.ROOT).contains("shovel");
+        if (!shovel && !isStoneMiningBlock(blockId)) {
             return;
         }
         String stat = shovel ? "fossilFinderChance" : "stoneFinderChance";
         double chance = ProfessionToolUtil.getStat(stack, stat);
         if (chance <= 0.0D) return;
+        // Tool stats are stored as literal percentages. For example, 0.10 means 0.10%,
+        // not 10%. Do not rescale sub-1 values.
         chance *= ActiveEffectManager.getMiningPassiveChanceMultiplier(player, stack);
         if (RANDOM.nextDouble() >= Math.min(100.0D, chance) / 100.0D) return;
         String itemId = shovel ? FOSSILS.get(RANDOM.nextInt(FOSSILS.size())) : STONES.get(RANDOM.nextInt(STONES.size()));
@@ -52,10 +57,24 @@ public class GemFinderPassive implements ProfessionPassive {
         }
     }
 
-    private static boolean isOreBlock(String blockId) {
+    private static boolean isStoneMiningBlock(String blockId) {
         if (blockId == null || blockId.isBlank()) return false;
         String id = blockId.toLowerCase(java.util.Locale.ROOT);
-        return id.endsWith("_ore") || id.equals("minecraft:ancient_debris");
+        if (id.endsWith("_ore") || id.equals("minecraft:ancient_debris")) return true;
+        return id.equals("minecraft:stone")
+                || id.equals("minecraft:deepslate")
+                || id.equals("minecraft:cobbled_deepslate")
+                || id.equals("minecraft:cobblestone")
+                || id.equals("minecraft:netherrack")
+                || id.equals("minecraft:blackstone")
+                || id.equals("minecraft:basalt")
+                || id.equals("minecraft:smooth_basalt")
+                || id.equals("minecraft:tuff")
+                || id.equals("minecraft:calcite")
+                || id.equals("minecraft:dripstone_block")
+                || id.equals("minecraft:end_stone")
+                || id.contains("granite") || id.contains("diorite") || id.contains("andesite")
+                || id.contains("sandstone") || id.contains("terracotta");
     }
 
     private static Item item(String itemId) {

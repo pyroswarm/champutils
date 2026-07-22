@@ -15,18 +15,39 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class MatchAcceptanceMenu {
     private static final Set<UUID> WAITING = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> SUPPRESS_REOPEN = ConcurrentHashMap.newKeySet();
+    private static final ConcurrentHashMap<UUID, Long> LAST_OPEN_NANOS = new ConcurrentHashMap<>();
+    private static final long FORCE_REOPEN_INTERVAL_NANOS = 2_000_000_000L;
 
     private MatchAcceptanceMenu() {}
 
     public static void open(ServerPlayer player, String type) {
         if (player == null || player.server == null || player.isRemoved() || player.hasDisconnected()) return;
         WAITING.add(player.getUUID());
-        new LockedMenu(player, type).open();
+        openNow(player, type);
+    }
+
+    /** Re-sends the mandatory menu if a client never displayed the first open packet. */
+    public static void ensureOpen(ServerPlayer player, String type) {
+        if (player == null || !WAITING.contains(player.getUUID())) return;
+        long now = System.nanoTime();
+        long last = LAST_OPEN_NANOS.getOrDefault(player.getUUID(), 0L);
+        if (now - last < FORCE_REOPEN_INTERVAL_NANOS) return;
+        openNow(player, type);
+    }
+
+    private static void openNow(ServerPlayer player, String type) {
+        if (player == null || player.server == null || player.isRemoved() || player.hasDisconnected()) return;
+        LAST_OPEN_NANOS.put(player.getUUID(), System.nanoTime());
+        player.server.execute(() -> {
+            if (!WAITING.contains(player.getUUID()) || player.isRemoved() || player.hasDisconnected()) return;
+            new LockedMenu(player, type).open();
+        });
     }
 
     public static void resolve(ServerPlayer player) {
         if (player == null) return;
         WAITING.remove(player.getUUID());
+        LAST_OPEN_NANOS.remove(player.getUUID());
         SUPPRESS_REOPEN.add(player.getUUID());
         player.closeContainer();
     }
@@ -56,6 +77,7 @@ public final class MatchAcceptanceMenu {
                         if (choiceMade) return;
                         choiceMade = true;
                         WAITING.remove(owner.getUUID());
+                        LAST_OPEN_NANOS.remove(owner.getUUID());
                         SUPPRESS_REOPEN.add(owner.getUUID());
                         MatchmakingManager.acceptMatch(owner);
                     }));
@@ -68,6 +90,7 @@ public final class MatchAcceptanceMenu {
                         if (choiceMade) return;
                         choiceMade = true;
                         WAITING.remove(owner.getUUID());
+                        LAST_OPEN_NANOS.remove(owner.getUUID());
                         SUPPRESS_REOPEN.add(owner.getUUID());
                         MatchmakingManager.declineMatch(owner);
                     }));

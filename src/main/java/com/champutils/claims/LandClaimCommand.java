@@ -54,7 +54,7 @@ public final class LandClaimCommand {
                     .then(literal("tp").then(argument("number", IntegerArgumentType.integer(1)).executes(context -> home(context.getSource().getPlayerOrException(), IntegerArgumentType.getInteger(context, "number")))))
                     .then(literal("settings").executes(context -> { LandClaimSettingsMenu.open(context.getSource().getPlayerOrException()); return 1; }))
                     .then(literal("border").executes(context -> toggleBorder(context.getSource().getPlayerOrException())))
-                    .then(literal("friend")
+                    .then(literal("trust")
                             .then(literal("add").then(argument("player", StringArgumentType.word())
                                     .suggests(NetworkPlayerDirectory::suggestNames)
                                     .executes(context -> addFriend(context.getSource().getPlayerOrException(), StringArgumentType.getString(context, "player")))))
@@ -82,7 +82,7 @@ public final class LandClaimCommand {
 
 
     public static void giveInitialClaimingStick(ServerPlayer player) {
-        if (player == null) return;
+        if (player == null || PlayerProfileManager.isIslander(player)) return;
         ItemStack stack = LandClaimSelectionItemListener.createClaimingStick();
         if (!player.getInventory().add(stack)) {
             player.drop(stack, false);
@@ -91,6 +91,7 @@ public final class LandClaimCommand {
     }
 
     private static int giveClaimItem(ServerPlayer player) {
+        if (denyIslanderClaiming(player)) return 0;
         long now = System.currentTimeMillis();
         long availableAt = CLAIM_ITEM_COOLDOWNS.getOrDefault(player.getUUID(), 0L);
         if (availableAt > now) {
@@ -120,6 +121,7 @@ public final class LandClaimCommand {
     }
 
     static int setPosAt(ServerPlayer player, boolean first, BlockPos pos) {
+        if (denyIslanderClaiming(player)) return 0;
         if (!LandClaimConfig.enabled()) {
             player.sendSystemMessage(Component.literal("Land claims are disabled.").withStyle(ChatFormatting.RED));
             return 0;
@@ -141,6 +143,7 @@ public final class LandClaimCommand {
     }
 
     static int preview(ServerPlayer player) {
+        if (denyIslanderClaiming(player)) return 0;
         if (isSpawnWorld(player.serverLevel())) {
             player.sendSystemMessage(Component.literal("You cannot create land claims in spawn.").withStyle(ChatFormatting.RED));
             return 0;
@@ -172,6 +175,11 @@ public final class LandClaimCommand {
     }
 
     private static int confirm(ServerPlayer player) {
+        if (denyIslanderClaiming(player)) {
+            PENDING.remove(player.getUUID());
+            SELECTIONS.remove(player.getUUID());
+            return 0;
+        }
         if (isSpawnWorld(player.serverLevel())) {
             PENDING.remove(player.getUUID());
             player.sendSystemMessage(Component.literal("You cannot create land claims in spawn.").withStyle(ChatFormatting.RED));
@@ -207,6 +215,12 @@ public final class LandClaimCommand {
                     player.sendSystemMessage(Component.literal("Stand inside it and run /claims settings to manage it.").withStyle(ChatFormatting.GRAY));
                 }));
         return 1;
+    }
+
+    static boolean denyIslanderClaiming(ServerPlayer player) {
+        if (player == null || !PlayerProfileManager.isIslander(player)) return false;
+        player.sendSystemMessage(Component.literal("Islander profiles cannot claim land. Your island is your home.").withStyle(ChatFormatting.RED));
+        return true;
     }
 
     private static int cancel(ServerPlayer player) {
@@ -280,17 +294,19 @@ public final class LandClaimCommand {
                 player.sendSystemMessage(Component.literal(friend.playerName() + " does not currently have an active profile to share.").withStyle(ChatFormatting.RED));
                 return;
             }
-            boolean changed = add
-                    ? LandClaimRepository.addMember(player, claim, friend.activeProfileId())
-                    : LandClaimRepository.removeMember(player, claim, friend.activeProfileId());
-            if (!changed) {
-                player.sendSystemMessage(Component.literal("Could not " + (add ? "add" : "remove") + " that profile " + (add ? "to" : "from") + " this claim.").withStyle(ChatFormatting.RED));
-                return;
-            }
-            player.sendSystemMessage(Component.literal((add ? "Added " : "Removed ") + friend.playerName() + "'s active profile " + (add ? "to" : "from") + " this claim.").withStyle(ChatFormatting.GREEN));
-            NetworkEventManager.sendPlayerNotice(player.server, friend.playerUuid(), add
-                    ? "§b" + player.getGameProfile().getName() + " added your active profile to a land claim."
-                    : "§e" + player.getGameProfile().getName() + " removed your active profile from a land claim.");
+            var changeFuture = add
+                    ? LandClaimRepository.addMemberAsync(player, claim, friend.activeProfileId())
+                    : LandClaimRepository.removeMemberAsync(player, claim, friend.activeProfileId());
+            changeFuture.whenComplete((changed, changeError) -> player.server.execute(() -> {
+                if (changeError != null || !Boolean.TRUE.equals(changed)) {
+                    player.sendSystemMessage(Component.literal("Could not " + (add ? "add" : "remove") + " that profile " + (add ? "to" : "from") + " this claim.").withStyle(ChatFormatting.RED));
+                    return;
+                }
+                player.sendSystemMessage(Component.literal((add ? "Added " : "Removed ") + friend.playerName() + "'s active profile " + (add ? "to" : "from") + " this claim.").withStyle(ChatFormatting.GREEN));
+                NetworkEventManager.sendPlayerNotice(player.server, friend.playerUuid(), add
+                        ? "§b" + player.getGameProfile().getName() + " added your active profile to a land claim."
+                        : "§e" + player.getGameProfile().getName() + " removed your active profile from a land claim.");
+            }));
         }));
         return 1;
     }
@@ -367,13 +383,26 @@ public final class LandClaimCommand {
                     int x = centerX + dx;
                     int z = centerZ + dz;
                     if (x < claim.minX || x > claim.maxX || z < claim.minZ || z > claim.maxZ) continue;
-                    BlockPos surface = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, level.getMinBuildHeight(), z));
+                    BlockPos surface = level.dimension() == net.minecraft.world.level.Level.NETHER
+                            ? findNetherSurface(level, x, z)
+                            : level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, level.getMinBuildHeight(), z));
+                    if (surface == null) continue;
                     BlockPos feet = new BlockPos(surface.getX(), Math.max(level.getMinBuildHeight() + 1, surface.getY() + 1), surface.getZ());
                     if (isSafeTeleportSpot(level, feet)) return feet;
                     BlockPos atSurface = new BlockPos(surface.getX(), Math.max(level.getMinBuildHeight() + 1, surface.getY()), surface.getZ());
                     if (isSafeTeleportSpot(level, atSurface)) return atSurface;
                 }
             }
+        }
+        return null;
+    }
+
+    private static BlockPos findNetherSurface(ServerLevel level, int x, int z) {
+        int top = Math.min(122, level.getMaxBuildHeight() - 3);
+        for (int y = top; y > level.getMinBuildHeight() + 1; y--) {
+            BlockPos ground = new BlockPos(x, y, z);
+            BlockPos feet = ground.above();
+            if (!level.getBlockState(ground).isAir() && isSafeTeleportSpot(level, feet)) return ground;
         }
         return null;
     }

@@ -34,21 +34,26 @@ public final class IronmanTradeBlocker {
     private static void handle(Object event) {
         ServerPlayer p1 = playerFromParticipant(firstValue(event, "tradeParticipant1", "getTradeParticipant1"));
         ServerPlayer p2 = playerFromParticipant(firstValue(event, "tradeParticipant2", "getTradeParticipant2"));
-        boolean blocked = false;
-        String blockedMode = "restricted";
-        if (p1 != null && PlayerProfileManager.gameMode(p1).blocksAuctionHouse()) {
-            blocked = true;
-            blockedMode = PlayerProfileManager.gameMode(p1).displayName();
+        if (p1 == null || p2 == null) return;
+
+        ProfileGameMode mode1 = PlayerProfileManager.gameMode(p1);
+        ProfileGameMode mode2 = PlayerProfileManager.gameMode(p2);
+        boolean islander1 = mode1 == ProfileGameMode.ISLANDER;
+        boolean islander2 = mode2 == ProfileGameMode.ISLANDER;
+
+        Component message = null;
+        if (islander1 != islander2) {
+            message = Component.literal("Islander profiles may only trade Pokémon with other Islander profiles.").withStyle(ChatFormatting.RED);
+        } else if (mode1.usesIronmanRules() || mode2.usesIronmanRules()) {
+            ProfileGameMode blockedMode = mode1.usesIronmanRules() ? mode1 : mode2;
+            message = Component.literal(blockedMode.displayName() + " profiles cannot trade Pokémon with other players.").withStyle(ChatFormatting.RED);
         }
-        if (p2 != null && PlayerProfileManager.gameMode(p2).blocksAuctionHouse()) {
-            blocked = true;
-            blockedMode = PlayerProfileManager.gameMode(p2).displayName();
-        }
-        if (!blocked) return;
+
+        // Two Islanders are intentionally allowed, including trades containing Eggs.
+        if (message == null) return;
         cancel(event);
-        Component message = Component.literal(blockedMode + " profiles cannot trade Pokémon with other players.").withStyle(ChatFormatting.RED);
-        if (p1 != null) p1.sendSystemMessage(message);
-        if (p2 != null) p2.sendSystemMessage(message);
+        p1.sendSystemMessage(message);
+        p2.sendSystemMessage(message);
     }
 
     private static ServerPlayer playerFromParticipant(Object participant) {

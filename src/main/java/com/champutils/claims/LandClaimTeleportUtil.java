@@ -112,12 +112,27 @@ public final class LandClaimTeleportUtil {
                     int z = centerZ + dz;
                     if (x < claim.minX || x > claim.maxX || z < claim.minZ || z > claim.maxZ) continue;
                     level.getChunk(x >> 4, z >> 4);
-                    BlockPos surface = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, level.getMinBuildHeight(), z));
+                    BlockPos surface = level.dimension() == net.minecraft.world.level.Level.NETHER
+                            ? findNetherSurface(level, x, z)
+                            : level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, level.getMinBuildHeight(), z));
+                    if (surface == null) continue;
                     BlockPos feet = new BlockPos(surface.getX(), Math.max(level.getMinBuildHeight() + 1, surface.getY() + 1), surface.getZ());
                     if (isSafe(level, feet)) return feet;
                     BlockPos atSurface = new BlockPos(surface.getX(), Math.max(level.getMinBuildHeight() + 1, surface.getY()), surface.getZ());
                     if (isSafe(level, atSurface)) return atSurface;
                 }
+            }
+        }
+        return null;
+    }
+
+    private static BlockPos findNetherSurface(ServerLevel level, int x, int z) {
+        int top = Math.min(122, level.getMaxBuildHeight() - 3);
+        for (int y = top; y > level.getMinBuildHeight() + 1; y--) {
+            BlockPos ground = new BlockPos(x, y, z);
+            BlockPos feet = ground.above();
+            if (!level.getBlockState(ground).isAir() && isSafe(level, feet)) {
+                return ground;
             }
         }
         return null;

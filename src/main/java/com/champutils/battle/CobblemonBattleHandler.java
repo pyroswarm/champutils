@@ -4,6 +4,7 @@ import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.battles.BattleStartedEvent;
 import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
 import com.cobblemon.mod.common.api.events.battles.BattleFaintedEvent;
+import com.cobblemon.mod.common.api.events.battles.BattleFledEvent;
 
 import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import com.cobblemon.mod.common.entity.npc.NPCBattleActor;
@@ -95,6 +96,30 @@ public class CobblemonBattleHandler {
          BATTLE END
          =========================
          */
+        CobblemonEvents.BATTLE_FLED.subscribe(event -> {
+            BattleFledEvent e = (BattleFledEvent) event;
+            if (!(e.getPlayer().getEntity() instanceof ServerPlayer player)) return;
+
+            // Fleeing an NPC battle can end without the victory callback path that normally
+            // releases ChampUtils' local lock. Clear only the player who fled; multi-player
+            // battles are left intact for any remaining participants.
+            BattleStateManager.clearAll(player);
+            BattleItemLockManager.unlock(player);
+            BattleContextManager.clearContext(player.getUUID());
+            BattleProfileRecoveryManager.handleBattleEnded(player, "battle-fled");
+
+            UUID npcId = null;
+            for (Object actor : e.getBattle().getActors()) {
+                if (actor instanceof NPCBattleActor npcActor) {
+                    npcId = npcActor.getEntity().getUUID();
+                    break;
+                }
+            }
+            PluginTrainerBattleStarter.releaseStartLocks(player.getUUID(), npcId);
+        });
+
+
+
         CobblemonEvents.BATTLE_VICTORY.subscribe(event -> {
 
             BattleVictoryEvent e =

@@ -17,6 +17,11 @@ public final class SharedJsonStateRepository {
 
     private SharedJsonStateRepository() {
     }
+    private static boolean isMinecraftServerThread() {
+        String name = Thread.currentThread().getName();
+        return name != null && name.equalsIgnoreCase("Server thread");
+    }
+
 
     public static void ensureSchemaAsync() {
         if (!DatabaseManager.isEnabled()) return;
@@ -40,6 +45,7 @@ public final class SharedJsonStateRepository {
 
     public static <T> T loadProfile(UUID profileId, String key, Class<T> type, T fallback) {
         if (profileId == null || key == null || key.isBlank() || type == null || !DatabaseManager.isEnabled()) return fallback;
+        if (isMinecraftServerThread()) return fallback;
         try {
             return DatabaseManager.supplyAsync("load profile json state " + key + " " + profileId, connection -> {
                 ensureSchema(connection);
@@ -80,6 +86,7 @@ public final class SharedJsonStateRepository {
 
     public static <T> T loadPlayer(UUID playerId, String key, Class<T> type, T fallback) {
         if (playerId == null || key == null || key.isBlank() || type == null || !DatabaseManager.isEnabled()) return fallback;
+        if (isMinecraftServerThread()) return fallback;
         try {
             return loadPlayerAsync(playerId, key, type, fallback).get(3, TimeUnit.SECONDS);
         } catch (Exception e) {
@@ -109,6 +116,7 @@ public final class SharedJsonStateRepository {
 
     public static <T> T loadGlobal(String key, Class<T> type, T fallback) {
         if (key == null || key.isBlank() || type == null || !DatabaseManager.isEnabled()) return fallback;
+        if (isMinecraftServerThread()) return fallback;
         try {
             return loadGlobalAsync(key, type, fallback).get(3, TimeUnit.SECONDS);
         } catch (Exception e) {

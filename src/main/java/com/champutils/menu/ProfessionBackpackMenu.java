@@ -15,12 +15,20 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class ProfessionBackpackMenu {
+    private static final Map<UUID, ViewState> LAST_VIEW = new ConcurrentHashMap<>();
+    private record ViewState(ProfessionType profession, int page, String search) {}
     private static final int[] CONTENT = {10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34,37,38,39,40,41,42,43};
     private ProfessionBackpackMenu() {}
 
-    public static void open(ServerPlayer player) { open(player, ProfessionType.MINING, 0, ""); }
+    public static void open(ServerPlayer player) {
+        ViewState state = LAST_VIEW.get(player.getUUID());
+        if (state == null) open(player, ProfessionType.MINING, 0, "");
+        else open(player, state.profession(), state.page(), state.search());
+    }
 
     public static void open(ServerPlayer player, String search) { open(player, null, 0, search); }
 
@@ -29,6 +37,7 @@ public final class ProfessionBackpackMenu {
     public static void open(ServerPlayer player, ProfessionType profession, int page, String search) {
         boolean searching = search != null && !search.isBlank();
         ProfessionType selected = profession == null ? ProfessionType.MINING : profession;
+        LAST_VIEW.put(player.getUUID(), new ViewState(selected, Math.max(0, page), search == null ? "" : search));
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x6, player);
         gui.setTitle(Component.literal(searching ? "Backpack Search: " + search : "Profession Backpack"));
         MenuUtil.fillBorders(gui, 4, 10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34,37,38,39,40,41,42,43,45,49,53);

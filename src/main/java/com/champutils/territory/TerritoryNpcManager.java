@@ -34,8 +34,8 @@ public final class TerritoryNpcManager {
     private static final Map<UUID, Long> LAST_WIDE_SCAN_TICK = new HashMap<>();
     private static int repairCursor = 0;
     private static final int REPAIR_INTERVAL_TICKS = 20 * 10;
-    private static final int MAX_REPAIRS_PER_PASS = 1;
-    private static final long WIDE_SCAN_INTERVAL_TICKS = 20L * 60L * 5L;
+    private static final int MAX_REPAIRS_PER_PASS = 4;
+    private static final long WIDE_SCAN_INTERVAL_TICKS = 20L * 60L;
 
     private TerritoryNpcManager() {}
 
@@ -248,6 +248,9 @@ public final class TerritoryNpcManager {
         boolean wrongPosition = npc.position().distanceToSqr(pos) > 0.25D;
         if (alreadyConfigured && !wrongName && !wrongPosition) {
             repairTags(npc, territory);
+            try { npc.setPersistenceRequired(); } catch (Exception ignored) {}
+            try { npc.setNoAi(true); } catch (Exception ignored) {}
+            try { npc.setInvulnerable(Boolean.TRUE); } catch (Exception ignored) {}
             return;
         }
 

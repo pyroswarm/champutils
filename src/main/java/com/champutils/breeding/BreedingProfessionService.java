@@ -1,7 +1,10 @@
 package com.champutils.breeding;
 
 import com.champutils.profession.ProfessionChunkManager;
+import com.champutils.profession.ProfessionChunkConfig;
 import com.champutils.profession.ProfessionManager;
+import com.champutils.profession.ProfessionSubLevelManager;
+import com.champutils.profession.ProfessionDataManager;
 import com.champutils.profession.ProfessionType;
 import com.cobblemon.mod.common.api.abilities.PotentialAbility;
 import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
@@ -119,7 +122,8 @@ public final class BreedingProfessionService {
 
     public static void applyExtraPerfectIv(ServerPlayer player, Pokemon child) {
         if (player == null || child == null) return;
-        double chance = scaledPercent(BreedingConfig.get().breedingLevel100ExtraPerfectIvChancePercent, player);
+        double chance = scaledPercent(BreedingConfig.get().breedingLevel100ExtraPerfectIvChancePercent, player)
+                + masteryScaledPercent(BreedingConfig.get().breedingMasteryLevel100ExtraPerfectIvChancePercent, player, child);
         if (RANDOM.nextDouble() >= chance) return;
 
         List<Stat> available = new ArrayList<>();
@@ -135,6 +139,11 @@ public final class BreedingProfessionService {
         return scaledPercent(BreedingConfig.get().breedingLevel100HiddenAbilityBonusPercent, player);
     }
 
+    public static double hiddenAbilityBonus(ServerPlayer player, Pokemon child) {
+        return hiddenAbilityBonus(player)
+                + masteryScaledPercent(BreedingConfig.get().breedingMasteryLevel100HiddenAbilityBonusPercent, player, child);
+    }
+
     public static void rollDittoAbility(ServerPlayer player, Pokemon child) {
         List<PotentialAbility> common = new ArrayList<>();
         List<PotentialAbility> hidden = new ArrayList<>();
@@ -145,7 +154,7 @@ public final class BreedingProfessionService {
         if (common.isEmpty() && hidden.isEmpty()) return;
 
         double hiddenChance = Math.max(0.0D, BreedingConfig.get().dittoEggBaseHiddenAbilityChancePercent / 100.0D)
-                + hiddenAbilityBonus(player);
+                + hiddenAbilityBonus(player, child);
         PotentialAbility chosen;
         if (!hidden.isEmpty() && RANDOM.nextDouble() < Math.min(1.0D, hiddenChance)) {
             chosen = hidden.get(RANDOM.nextInt(hidden.size()));
@@ -157,26 +166,47 @@ public final class BreedingProfessionService {
         child.updateAbility(chosen.getTemplate().create(false, chosen.getPriority()));
     }
 
-    /** Additional independent roll that increases the final shiny chance by at most 2% relative. */
-    public static boolean rollShinyProfessionBonus(ServerPlayer player, int denominator, int standardRolls) {
+    /** Additional independent roll using the main Breeding level and matching type mastery bonuses. */
+    public static boolean rollShinyProfessionBonus(ServerPlayer player, Pokemon child, int denominator, int standardRolls) {
         if (player == null || denominator <= 0 || standardRolls <= 0) return false;
         double standardChance = 1.0D - Math.pow(1.0D - (1.0D / denominator), standardRolls);
-        double relativeBonus = scaledPercent(BreedingConfig.get().breedingLevel100ShinyRelativeBonusPercent, player);
+        double relativeBonus = scaledPercent(BreedingConfig.get().breedingLevel100ShinyRelativeBonusPercent, player)
+                + masteryScaledPercent(BreedingConfig.get().breedingMasteryLevel100ShinyRelativeBonusPercent, player, child);
         return RANDOM.nextDouble() < Math.min(1.0D, standardChance * relativeBonus);
     }
 
     public static int effectiveCooldownSeconds(ServerPlayer player) {
+        return effectiveCooldownSeconds(player, null, null);
+    }
+
+    public static int effectiveCooldownSeconds(ServerPlayer player, Pokemon parentA, Pokemon parentB) {
         int base = Math.max(0, BreedingConfig.get().breedingCooldownSeconds);
         int level = player == null ? 0 : Math.max(0, Math.min(100, ProfessionManager.getLevel(player, ProfessionType.BREEDING)));
-        double reduction = level * BreedingConfig.get().cooldownReductionPerBreedingLevelPercent / 100.0D;
-        return (int)Math.ceil(base * Math.max(0.0D, 1.0D - reduction));
+        double professionReduction = level * BreedingConfig.get().cooldownReductionPerBreedingLevelPercent / 100.0D;
+        double afterProfession = base * Math.max(0.0D, 1.0D - professionReduction);
+        double masteryReduction = masteryCooldownReduction(player, parentA, parentB);
+        double afterMastery = afterProfession * Math.max(0.0D, 1.0D - masteryReduction);
+        int fullyReducedCooldown = (int)Math.ceil(
+                afterMastery * com.champutils.profession.ProfessionTrinketManager.incubatorCooldownMultiplier(player)
+        );
+        // Absolute safety floor applied after every profession, mastery, trinket, and future multiplier.
+        return Math.max(5 * 60, fullyReducedCooldown);
     }
 
     public static void rewardHatch(ServerPlayer player, Pokemon hatchling) {
         if (player == null || hatchling == null) return;
         RarityTier rarity = rarityFor(hatchling);
-        ProfessionManager.addXp(player, ProfessionType.BREEDING, xpFor(rarity));
+        int xp = xpFor(rarity);
+        ProfessionManager.addXp(player, ProfessionType.BREEDING, xp);
+        List<String> types = new ArrayList<>();
+        hatchling.getTypes().forEach(type -> types.add(type.showdownId()));
+        int masteryXp = Math.max(1, xp * Math.max(1, BreedingConfig.get().breedingTypeMasteryXpMultiplier));
+        int splitMasteryXp = Math.max(1, (int)Math.ceil(masteryXp / (double)Math.max(1, types.size())));
+        for (String type : types) {
+            ProfessionSubLevelManager.addXp(player, ProfessionType.BREEDING, "TYPE", type, splitMasteryXp);
+        }
         ProfessionChunkManager.addChunk(player, rollChunk(player), 1, true);
+        com.champutils.quest.QuestManager.recordBreeding(player, hatchling);
     }
 
     public static int xpFor(RarityTier rarity) {
@@ -190,18 +220,9 @@ public final class BreedingProfessionService {
     }
 
     public static String rollChunk(ServerPlayer player) {
-        BreedingConfig.Values config = BreedingConfig.get();
-        double progress = levelProgress(player);
-        List<String> keys = List.of("COBBLESTONE", "COPPER", "IRON", "GOLD", "DIAMOND", "NETHERITE");
-        double total = 0.0D;
-        List<Double> weights = new ArrayList<>(keys.size());
-        for (String key : keys) {
-            double low = nonNegative(config.hatchChunkWeightsLevel1.get(key));
-            double high = nonNegative(config.hatchChunkWeightsLevel100.get(key));
-            double weight = low + ((high - low) * progress);
-            weights.add(Math.max(0.0D, weight));
-            total += Math.max(0.0D, weight);
-        }
+        List<String> keys = List.of("COBBLESTONE", "COPPER", "IRON", "GOLD", "EMERALD", "DIAMOND", "NETHERITE");
+        List<Double> weights = breedingChunkWeights(player, keys);
+        double total = weights.stream().mapToDouble(Double::doubleValue).sum();
         if (total <= 0.0D) return "COBBLESTONE";
         double roll = RANDOM.nextDouble() * total;
         for (int i = 0; i < keys.size(); i++) {
@@ -209,6 +230,77 @@ public final class BreedingProfessionService {
             if (roll <= 0.0D) return keys.get(i);
         }
         return "COBBLESTONE";
+    }
+
+    public static double breedingChunkChancePercent(ServerPlayer player, String chunkKey) {
+        List<String> keys = List.of("COBBLESTONE", "COPPER", "IRON", "GOLD", "EMERALD", "DIAMOND", "NETHERITE");
+        List<Double> weights = breedingChunkWeights(player, keys);
+        double total = weights.stream().mapToDouble(Double::doubleValue).sum();
+        int index = keys.indexOf(chunkKey == null ? "" : chunkKey.toUpperCase(Locale.ROOT));
+        return index < 0 || total <= 0.0D ? 0.0D : (weights.get(index) / total) * 100.0D;
+    }
+
+    public static int breedingChunkUnlockLevel(String chunkKey) {
+        String normalized = chunkKey == null ? "" : chunkKey.toUpperCase(Locale.ROOT);
+        if (ProfessionChunkConfig.CONFIG != null && ProfessionChunkConfig.CONFIG.activities != null) {
+            for (ProfessionChunkConfig.ActivityData activity : ProfessionChunkConfig.CONFIG.activities.values()) {
+                if (activity == null || activity.rolls == null) continue;
+                ProfessionChunkConfig.RollData roll = activity.rolls.get(normalized);
+                if (roll != null) return Math.max(1, roll.minProfessionLevel);
+            }
+        }
+        return switch (normalized) {
+            case "IRON" -> 15; case "GOLD" -> 25; case "EMERALD" -> 40;
+            case "DIAMOND" -> 55; case "NETHERITE" -> 85; default -> 1;
+        };
+    }
+
+    private static List<Double> breedingChunkWeights(ServerPlayer player, List<String> keys) {
+        BreedingConfig.Values config = BreedingConfig.get();
+        double progress = levelProgress(player);
+        int level = player == null ? 1 : ProfessionManager.getLevel(player, ProfessionType.BREEDING);
+        List<Double> weights = new ArrayList<>(keys.size());
+        for (String key : keys) {
+            if (level < breedingChunkUnlockLevel(key)) {
+                weights.add(0.0D);
+                continue;
+            }
+            double low = nonNegative(config.hatchChunkWeightsLevel1.get(key));
+            double high = nonNegative(config.hatchChunkWeightsLevel100.get(key));
+            weights.add(Math.max(0.0D, low + ((high - low) * progress)));
+        }
+        return weights;
+    }
+
+    /**
+     * Overall Breeding Mastery shown in profession menus.
+     * Breeding mastery is earned per Pokémon type, so the displayed level is the
+     * rounded average of all discovered Breeding type masteries.
+     */
+    public static int currentBreedingMasteryLevel(ServerPlayer player) {
+        return (int)Math.round(averageBreedingTypeMasteryProgress(player) * 100.0D);
+    }
+
+    public static double currentExtraPerfectIvChancePercent(ServerPlayer player) {
+        return scaledPercent(BreedingConfig.get().breedingLevel100ExtraPerfectIvChancePercent, player) * 100.0D
+                + (BreedingConfig.get().breedingMasteryLevel100ExtraPerfectIvChancePercent * averageBreedingTypeMasteryProgress(player));
+    }
+
+    public static double currentHiddenAbilityBonusPercent(ServerPlayer player) {
+        return hiddenAbilityBonus(player) * 100.0D
+                + (BreedingConfig.get().breedingMasteryLevel100HiddenAbilityBonusPercent * averageBreedingTypeMasteryProgress(player));
+    }
+
+    public static double currentDittoHiddenAbilityChancePercent(ServerPlayer player) {
+        return Math.min(100.0D, Math.max(0.0D, BreedingConfig.get().dittoEggBaseHiddenAbilityChancePercent + currentHiddenAbilityBonusPercent(player)));
+    }
+
+    public static double currentShinyBonusChancePercent(ServerPlayer player) {
+        int denominator = Math.max(1, BreedingConfig.get().shinyDenominator);
+        double baseChance = 1.0D / denominator;
+        double relative = scaledPercent(BreedingConfig.get().breedingLevel100ShinyRelativeBonusPercent, player)
+                + (BreedingConfig.get().breedingMasteryLevel100ShinyRelativeBonusPercent / 100.0D * averageBreedingTypeMasteryProgress(player));
+        return baseChance * relative * 100.0D;
     }
 
     private static double weightedChance(RarityTier tier, int level) {
@@ -235,6 +327,54 @@ public final class BreedingProfessionService {
 
     private static double levelProgress(ServerPlayer player) {
         return Math.max(0.0D, Math.min(1.0D, (benefitLevel(player) - 1) / 99.0D));
+    }
+
+    private static double masteryScaledPercent(double level100Percent, ServerPlayer player, Pokemon pokemon) {
+        double progress = pokemon == null ? averageBreedingTypeMasteryProgress(player) : pokemonTypeMasteryProgress(player, pokemon);
+        return Math.max(0.0D, level100Percent) / 100.0D * progress;
+    }
+
+    private static double masteryCooldownReduction(ServerPlayer player, Pokemon parentA, Pokemon parentB) {
+        if (player == null) return 0.0D;
+        List<String> types = new ArrayList<>();
+        if (parentA != null) parentA.getTypes().forEach(type -> types.add(type.showdownId()));
+        if (parentB != null) parentB.getTypes().forEach(type -> types.add(type.showdownId()));
+        double progress = types.isEmpty() ? averageBreedingTypeMasteryProgress(player) : masteryProgressForTypes(player, types);
+        return Math.min(0.95D, (BreedingConfig.get().breedingMasteryLevel100CooldownReductionPercent / 100.0D) * progress);
+    }
+
+    private static double pokemonTypeMasteryProgress(ServerPlayer player, Pokemon pokemon) {
+        if (pokemon == null) return averageBreedingTypeMasteryProgress(player);
+        List<String> types = new ArrayList<>();
+        pokemon.getTypes().forEach(type -> types.add(type.showdownId()));
+        return masteryProgressForTypes(player, types);
+    }
+
+    private static double masteryProgressForTypes(ServerPlayer player, List<String> types) {
+        if (player == null || types == null || types.isEmpty()) return 0.0D;
+        var data = ProfessionManager.getData(player);
+        ProfessionDataManager.ensureProfessionDefaults(data);
+        double total = 0.0D;
+        int count = 0;
+        for (String type : types.stream().filter(java.util.Objects::nonNull).map(String::toLowerCase).distinct().toList()) {
+            var sub = data.sublevels.get(ProfessionSubLevelManager.key(ProfessionType.BREEDING, "TYPE", type));
+            total += sub == null ? 0.0D : Math.max(1, Math.min(100, sub.level)) / 100.0D;
+            count++;
+        }
+        return count == 0 ? 0.0D : total / count;
+    }
+
+    private static double averageBreedingTypeMasteryProgress(ServerPlayer player) {
+        if (player == null) return 0.0D;
+        var entries = ProfessionSubLevelManager.sublevels(player, ProfessionType.BREEDING);
+        double total = 0.0D;
+        int count = 0;
+        for (var entry : entries) {
+            if (!entry.getKey().startsWith(ProfessionType.BREEDING.name() + ":TYPE:")) continue;
+            total += Math.max(1, Math.min(100, entry.getValue().level)) / 100.0D;
+            count++;
+        }
+        return count == 0 ? 0.0D : total / count;
     }
 
     private static int benefitLevel(ServerPlayer player) {

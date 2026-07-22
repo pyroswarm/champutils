@@ -29,8 +29,16 @@ public final class ExpeditionMenu {
                     .hideDefaultTooltip()
                     .setName(Component.literal("§6Active Expedition"))
                     .addLoreLine(Component.literal("§7" + ExpeditionManager.activeStatusText(player)))
-                    .addLoreLine(Component.literal("§7Click to claim if it is ready."))
-                    .setCallback((slot, click, action) -> { ExpeditionManager.claim(player); open(player); }));
+                    .addLoreLine(Component.literal("§7Left-click to claim if it is ready."))
+                    .addLoreLine(Component.literal("§cRight-click to cancel with no rewards."))
+                    .setCallback((slot, click, action) -> {
+                        if (click != null && click.toString().toUpperCase(Locale.ROOT).contains("RIGHT")) {
+                            confirmCancel(player);
+                        } else {
+                            ExpeditionManager.claim(player);
+                            open(player);
+                        }
+                    }));
         } else {
             gui.setSlot(4, new GuiElementBuilder(Items.MAP)
                     .hideDefaultTooltip()
@@ -143,6 +151,21 @@ public final class ExpeditionMenu {
             }
         }
         button.addLoreLine(Component.literal("§8Higher tiers improve reward quality."));
+    }
+
+
+    public static void confirmCancel(ServerPlayer player) {
+        SimpleGui gui = new SimpleGui(MenuType.GENERIC_9x3, player, false);
+        gui.setTitle(Component.literal("Cancel Expedition?"));
+        gui.setSlot(11, new GuiElementBuilder(Items.RED_STAINED_GLASS_PANE).hideDefaultTooltip()
+                .setName(Component.literal("§c§lCancel Expedition"))
+                .addLoreLine(Component.literal("§7Your Pokémon will be returned."))
+                .addLoreLine(Component.literal("§cYou will receive no rewards."))
+                .setCallback((slot, click, action) -> { ExpeditionManager.cancel(player); open(player); }));
+        gui.setSlot(15, new GuiElementBuilder(Items.LIME_STAINED_GLASS_PANE).hideDefaultTooltip()
+                .setName(Component.literal("§aKeep Expedition"))
+                .setCallback((slot, click, action) -> open(player)));
+        gui.open();
     }
 
     private static String relativeTime(long millis) {

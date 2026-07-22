@@ -61,13 +61,14 @@ public final class PokemonWikiCommand {
 
     private static void sendSummary(ServerPlayer player, String pokemon) {
         player.sendSystemMessage(Component.literal("§6" + prettyPokemon(pokemon) + " Wiki"));
-        player.sendSystemMessage(Component.literal("§7Use: §e/wiki " + pokemon.toLowerCase(Locale.ROOT) + " <type|ability|biome|time|level|rarity|egg_moves|drops>"));
+        player.sendSystemMessage(Component.literal("§7Use: §e/wiki " + pokemon.toLowerCase(Locale.ROOT) + " <type|ability|biome|time|level|rarity|egg_moves|drops|evo>"));
         sendTopic(player, pokemon, "type");
         sendTopic(player, pokemon, "ability");
         sendTopic(player, pokemon, "biome");
         sendTopic(player, pokemon, "time");
         sendTopic(player, pokemon, "rarity");
         sendTopic(player, pokemon, "drops");
+        sendTopic(player, pokemon, "evo");
     }
 
     private static void sendTopic(ServerPlayer player, String pokemon, String topic) {
@@ -88,7 +89,8 @@ public final class PokemonWikiCommand {
             case "type", "types" -> { label = "Type"; value = PokemonWikiIndex.types(pokemon); }
             case "egg", "eggs", "eggmove", "eggmoves", "egg_moves" -> { label = "Egg moves"; value = PokemonWikiIndex.eggMoves(pokemon); }
             case "drop", "drops", "loot" -> { label = "Wild battle drops"; value = PokemonWikiIndex.drops(pokemon); }
-            default -> { label = "Unknown topic"; value = "Try type, ability, biome, time, level, rarity, egg_moves, drops, block, structure, or weather."; }
+            case "evo", "evolution", "evolutions", "evolve" -> { label = "Evolution"; value = PokemonWikiIndex.evolutions(pokemon); }
+            default -> { label = "Unknown topic"; value = "Try type, ability, biome, time, level, rarity, egg_moves, drops, evo, block, structure, or weather."; }
         }
         player.sendSystemMessage(Component.literal("§6" + prettyPokemon(pokemon) + " §e" + label + ": §f" + value));
     }

@@ -38,7 +38,7 @@ public final class ProfessionCurrencyInventoryMenu {
                 .addLoreLine(Component.literal("§7Digital chunks are saved per profile."))
                 .addLoreLine(Component.literal("§7Hover each icon to view your balance.")));
 
-        int[] slots = {10, 11, 12, 13, 14, 15};
+        int[] slots = {10, 11, 12, 13, 14, 15, 16};
         int index = 0;
         for (String chunk : ProfessionChunkConfig.CONFIG.chunks.keySet()) {
             if (index >= slots.length) break;
@@ -132,7 +132,7 @@ public final class ProfessionCurrencyInventoryMenu {
                 .addLoreLine(Component.literal("§7Digital essence are saved per profile."))
                 .addLoreLine(Component.literal("§7Hover each icon to view your balance.")));
 
-        int[] slots = {10, 11, 12, 13, 14, 15};
+        int[] slots = {10, 11, 12, 13, 14, 15, 16};
         int index = 0;
         for (String fragment : ProfessionFragmentConfig.FRAGMENTS.keySet()) {
             if (index >= slots.length) break;
@@ -168,6 +168,7 @@ public final class ProfessionCurrencyInventoryMenu {
             case "COPPER" -> Items.COPPER_INGOT;
             case "IRON" -> Items.IRON_INGOT;
             case "GOLD" -> Items.GOLD_INGOT;
+            case "EMERALD" -> Items.EMERALD;
             case "DIAMOND" -> Items.DIAMOND;
             case "NETHERITE" -> Items.NETHERITE_INGOT;
             default -> Items.COBBLESTONE;

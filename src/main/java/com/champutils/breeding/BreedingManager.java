@@ -141,7 +141,7 @@ public final class BreedingManager {
                 parentBSpecies,
                 offspringSpecies,
                 result.requiredSteps(),
-                config.breedingCooldownSeconds
+                BreedingProfessionService.effectiveCooldownSeconds(player, parentA, parentB)
         ).whenComplete((reservation, error) -> {
             MinecraftServer callbackServer = player.server;
             if (callbackServer == null) {

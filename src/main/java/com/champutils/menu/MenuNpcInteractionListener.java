@@ -98,6 +98,8 @@ public final class MenuNpcInteractionListener {
             case "champsshop", "champs_shop", "cashshop", "accountupgrade", "accountupgrades", "upgrades", "rankupgrade", "vip" -> com.champutils.account.AccountUpgradeMenu.open(player);
             case "rankedshop", "rankedtokens", "ranked_token_shop" -> RankedShopMenu.open(player);
             case "breeding", "breed", "nursery" -> com.champutils.breeding.BreedingMenu.open(player);
+            case "pokefan", "pokemonservices", "pokemon_services" -> com.champutils.pokefan.PokefanMenu.open(player);
+            case "eggmoves", "eggmove", "eggmover", "eggmovetutor" -> com.champutils.commands.EggMoveMenu.open(player);
             case "nursejoy", "nurse", "healer" -> {
                 com.champutils.battle.BattlePrepManager.healParty(player);
                 player.sendSystemMessage(Component.literal("Your Pokemon have been fully healed!").withStyle(ChatFormatting.GREEN));

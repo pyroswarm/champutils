@@ -711,9 +711,13 @@ public final class ProfessionFragmentManager {
                         !normalizedToolType.equals("level_charm") &&
                         !normalizedToolType.equals("rare_pokemon_charm") &&
                         !normalizedToolType.equals("chunky_brick") &&
+                        !normalizedToolType.equals("totem_of_growth") &&
+                        !normalizedToolType.equals("poke_snax") &&
+                        !normalizedToolType.equals("seed_pouch") &&
+                        !normalizedToolType.equals("incubator") &&
                         !normalizedToolType.equals("trinket_pouch")
         ) {
-            return CraftResult.fail("Choose pickaxe, axe, hoe, shovel, sword, helmet, chestplate, leggings, boots, magnet, shiny_charm, profession_xp_gem, pokemon_xp_egg, friendship_charm, level_charm, rare_pokemon_charm, chunky_brick, or trinket_pouch.");
+            return CraftResult.fail("Choose pickaxe, axe, hoe, shovel, sword, helmet, chestplate, leggings, boots, magnet, shiny_charm, profession_xp_gem, pokemon_xp_egg, friendship_charm, level_charm, rare_pokemon_charm, chunky_brick, totem_of_growth, poke_snax, seed_pouch, incubator, or trinket_pouch.");
         }
 
         String normalizedRarity =
@@ -735,6 +739,10 @@ public final class ProfessionFragmentManager {
                         normalizedToolType.equals("level_charm") ||
                         normalizedToolType.equals("rare_pokemon_charm") ||
                         normalizedToolType.equals("chunky_brick") ||
+                        normalizedToolType.equals("totem_of_growth") ||
+                        normalizedToolType.equals("poke_snax") ||
+                        normalizedToolType.equals("seed_pouch") ||
+                        normalizedToolType.equals("incubator") ||
                         normalizedToolType.equals("trinket_pouch");
 
         String fragmentKey = normalizedRarity;
@@ -755,11 +763,8 @@ public final class ProfessionFragmentManager {
             );
         }
 
-        if (!EconomyManager.canAfford(player, creditCostCents)) {
-            return CraftResult.fail(
-                    "You need " + EconomyManager.format(creditCostCents) + " to craft this. You have " + EconomyManager.format(EconomyManager.getBalance(player)) + "."
-            );
-        }
+        // Credits are charged atomically by ProfessionSalvageCommand before this method runs.
+        // Re-checking the post-charge balance here incorrectly rejects valid purchases and triggers a refund.
 
         if (normalizedToolType.equals("helmet") || normalizedToolType.equals("chestplate") || normalizedToolType.equals("leggings") || normalizedToolType.equals("boots")) {
             ItemStack reward = ProfessionGearManager.createArmor(normalizedToolType, normalizedRarity);
@@ -782,7 +787,7 @@ public final class ProfessionFragmentManager {
             );
         }
 
-        if (normalizedToolType.equals("magnet") || normalizedToolType.equals("shiny_charm") || normalizedToolType.equals("profession_xp_gem") || normalizedToolType.equals("pokemon_xp_egg") || normalizedToolType.equals("friendship_charm") || normalizedToolType.equals("level_charm") || normalizedToolType.equals("rare_pokemon_charm") || normalizedToolType.equals("chunky_brick") || normalizedToolType.equals("trinket_pouch")) {
+        if (normalizedToolType.equals("magnet") || normalizedToolType.equals("shiny_charm") || normalizedToolType.equals("profession_xp_gem") || normalizedToolType.equals("pokemon_xp_egg") || normalizedToolType.equals("friendship_charm") || normalizedToolType.equals("level_charm") || normalizedToolType.equals("rare_pokemon_charm") || normalizedToolType.equals("chunky_brick") || normalizedToolType.equals("totem_of_growth") || normalizedToolType.equals("poke_snax") || normalizedToolType.equals("seed_pouch") || normalizedToolType.equals("incubator") || normalizedToolType.equals("trinket_pouch")) {
             if (normalizedToolType.equals("trinket_pouch")) {
                 if (!ProfessionTrinketManager.canUpgradeDigitalPouch(player, normalizedRarity)) {
                     return CraftResult.fail("You already have an equal or better digital trinket pouch. Lesser pouches cannot be purchased.");
@@ -1021,6 +1026,10 @@ public final class ProfessionFragmentManager {
 
         if (normalized.equals("chunkybrick") || normalized.equals("chunk_brick")) {
             return "chunky_brick";
+        }
+
+        if (normalized.equals("pokesnax") || normalized.equals("pokesnacks") || normalized.equals("poke_snacks")) {
+            return "poke_snax";
         }
 
         return normalized;

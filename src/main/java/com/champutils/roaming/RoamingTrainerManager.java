@@ -241,6 +241,9 @@ public final class RoamingTrainerManager {
         RoamingTrainerRarity safeRarity = rarity == null ? RoamingTrainerRarity.F : rarity;
         RoamingTrainerConfig.RaritySettings settings = RoamingTrainerConfig.settings(safeRarity);
         int targetLevel = playerPartyHighestLevelForRarity(player, safeRarity);
+        if (AdventurerGuildManager.SOURCE_BATTLE_TOWER.equals(source) || AdventurerGuildManager.SOURCE_BATTLE_TOWER_ULTIMATE.equals(source)) {
+            targetLevel = Math.max(30, targetLevel);
+        }
         TrainerIdentity identity = chooseIdentity(safeRarity, settings);
         String displayName = identity.displayName;
         String skin = identity.skin;
@@ -355,6 +358,13 @@ public final class RoamingTrainerManager {
         }
 
         if (AdventurerGuildManager.SOURCE_ROAMING_LEAGUE.equals(data.adventureSource)) {
+            if (AdventurerGuildManager.isPlayerRequestRestricted(winner)) {
+                releaseChallenge(losingNpcUuid, winner.getUUID());
+                PluginTrainerBattleStarter.releaseStartLocks(winner.getUUID(), losingNpcUuid);
+                removeTrainerSilently(winner.getServer(), losingNpcUuid);
+                winner.sendSystemMessage(Component.literal("This profile cannot fulfill Adventurer player requests.").withStyle(ChatFormatting.RED));
+                return;
+            }
             AdventurerGuildManager.completeRoamingLeagueTrainer(winner, data);
         }
 
@@ -377,6 +387,12 @@ public final class RoamingTrainerManager {
             removeNpc(npc);
         }
         TRAINERS.remove(losingNpcUuid);
+        releaseChallenge(losingNpcUuid, winner.getUUID());
+        PluginTrainerBattleStarter.releaseStartLocks(winner.getUUID(), losingNpcUuid);
+        winner.getServer().execute(() -> {
+            releaseChallenge(losingNpcUuid, winner.getUUID());
+            PluginTrainerBattleStarter.releaseStartLocks(winner.getUUID(), losingNpcUuid);
+        });
     }
 
     private static void trySpawnFor(ServerPlayer player) {

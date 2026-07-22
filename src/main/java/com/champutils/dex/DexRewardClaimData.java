@@ -101,6 +101,18 @@ public final class DexRewardClaimData {
         return claimed != null && claimed.contains(percent);
     }
 
+    public static synchronized boolean hasAnyClaimedForProfile(UUID profileId) {
+        if (profileId == null) return false;
+        Set<Integer> claimed = CLAIMS.get(profileId.toString());
+        return claimed != null && !claimed.isEmpty();
+    }
+
+    public static synchronized boolean hasClaimedForProfile(UUID profileId, int percent) {
+        if (profileId == null) return false;
+        Set<Integer> claimed = CLAIMS.get(profileId.toString());
+        return claimed != null && claimed.contains(percent);
+    }
+
     /** Atomically reserves a reward tier so two backends can never grant it twice. */
     public static CompletableFuture<Boolean> markClaimedAsync(UUID profileId, int percent) {
         if (profileId == null) return CompletableFuture.completedFuture(false);

@@ -14,6 +14,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -218,13 +219,30 @@ public final class IslanderMineManager {
         long deadline = System.nanoTime() + Math.max(1, cfg.generationMaxMillisPerTick) * 1_000_000L;
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         while (budget-- > 0 && !task.done(cfg)) {
+            // Never let a block lookup synchronously load a chunk. The previous
+            // implementation called getBlockEntity/setBlock directly and could
+            // park the server thread inside getChunkBlocking until the watchdog
+            // killed the server. Add a force ticket, then wait for getChunkNow.
+            LevelChunk chunk = level.getChunkSource().getChunkNow(task.chunkX, task.chunkZ);
+            if (chunk == null) {
+                task.forceCurrentChunk(level);
+                break;
+            }
+
             pos.set(cfg.centerX + task.dx, cfg.centerY + task.dy, cfg.centerZ + task.dz);
             placeMineBlock(level, pos, cfg, task);
-            task.advance(cfg);
+            task.advance(cfg, level);
             if ((budget & 31) == 0 && System.nanoTime() >= deadline) break;
         }
         if (task.done(cfg)) {
+            int entranceChunkX = cfg.centerX >> 4;
+            int entranceChunkZ = cfg.centerZ >> 4;
+            if (level.getChunkSource().getChunkNow(entranceChunkX, entranceChunkZ) == null) {
+                task.forceChunk(level, entranceChunkX, entranceChunkZ);
+                return;
+            }
             buildEntrance(level, cfg);
+            task.releaseForcedChunk(level);
             teleportMinePlayersToSpawn(level);
             READY_DIMENSIONS.add(task.dimension);
             TASKS.poll();
@@ -480,19 +498,80 @@ public final class IslanderMineManager {
         final String dimension;
         final boolean forceReset;
         final long seed;
-        int dx, dy, dz;
+        final int minChunkX;
+        final int maxChunkX;
+        final int minChunkZ;
+        final int maxChunkZ;
+        int chunkX;
+        int chunkZ;
+        int dx;
+        int dy;
+        int dz;
+        int forcedChunkX = Integer.MIN_VALUE;
+        int forcedChunkZ = Integer.MIN_VALUE;
+
         MineTask(String dimension, boolean forceReset) {
             this.dimension = dimension;
             this.forceReset = forceReset;
             IslanderMineConfig.Data cfg = IslanderMineConfig.get();
-            this.dx = -cfg.radius; this.dy = 0; this.dz = -cfg.radius;
+            this.minChunkX = Math.floorDiv(cfg.centerX - cfg.radius, 16);
+            this.maxChunkX = Math.floorDiv(cfg.centerX + cfg.radius, 16);
+            this.minChunkZ = Math.floorDiv(cfg.centerZ - cfg.radius, 16);
+            this.maxChunkZ = Math.floorDiv(cfg.centerZ + cfg.radius, 16);
+            this.chunkX = minChunkX;
+            this.chunkZ = minChunkZ;
+            resetLocalPosition(cfg);
             this.seed = System.nanoTime() ^ dimension.hashCode() ^ UUID.randomUUID().getMostSignificantBits();
         }
-        boolean done(IslanderMineConfig.Data cfg) { return dy > cfg.height; }
-        void advance(IslanderMineConfig.Data cfg) {
+
+        boolean done(IslanderMineConfig.Data cfg) {
+            return chunkX > maxChunkX;
+        }
+
+        void advance(IslanderMineConfig.Data cfg, ServerLevel level) {
+            dy++;
+            if (dy <= cfg.height) return;
+            dy = 0;
             dz++;
-            if (dz > cfg.radius) { dz = -cfg.radius; dx++; }
-            if (dx > cfg.radius) { dx = -cfg.radius; dy++; }
+            int chunkMaxZ = Math.min(cfg.radius, ((chunkZ + 1) << 4) - 1 - cfg.centerZ);
+            if (dz <= chunkMaxZ) return;
+            dz = Math.max(-cfg.radius, (chunkZ << 4) - cfg.centerZ);
+            dx++;
+            int chunkMaxX = Math.min(cfg.radius, ((chunkX + 1) << 4) - 1 - cfg.centerX);
+            if (dx <= chunkMaxX) return;
+
+            releaseForcedChunk(level);
+            chunkZ++;
+            if (chunkZ > maxChunkZ) {
+                chunkZ = minChunkZ;
+                chunkX++;
+            }
+            if (!done(cfg)) resetLocalPosition(cfg);
+        }
+
+        private void resetLocalPosition(IslanderMineConfig.Data cfg) {
+            dx = Math.max(-cfg.radius, (chunkX << 4) - cfg.centerX);
+            dz = Math.max(-cfg.radius, (chunkZ << 4) - cfg.centerZ);
+            dy = 0;
+        }
+
+        void forceCurrentChunk(ServerLevel level) {
+            forceChunk(level, chunkX, chunkZ);
+        }
+
+        void forceChunk(ServerLevel level, int x, int z) {
+            if (forcedChunkX == x && forcedChunkZ == z) return;
+            releaseForcedChunk(level);
+            level.setChunkForced(x, z, true);
+            forcedChunkX = x;
+            forcedChunkZ = z;
+        }
+
+        void releaseForcedChunk(ServerLevel level) {
+            if (forcedChunkX == Integer.MIN_VALUE) return;
+            level.setChunkForced(forcedChunkX, forcedChunkZ, false);
+            forcedChunkX = Integer.MIN_VALUE;
+            forcedChunkZ = Integer.MIN_VALUE;
         }
     }
 }

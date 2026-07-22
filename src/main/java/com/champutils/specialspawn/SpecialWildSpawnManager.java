@@ -1,6 +1,7 @@
 package com.champutils.specialspawn;
 
 import com.champutils.debug.ChampDebugManager;
+import com.champutils.gym.GymLevelCapUtil;
 import com.champutils.profile.IslanderProfileManager;
 import com.champutils.profile.IslanderMineManager;
 import com.champutils.spawn.SpawnBlockRules;
@@ -57,6 +58,7 @@ public final class SpecialWildSpawnManager {
     private static final Random RANDOM = new Random();
     private static int ticksUntilCheck = 200;
     private static int ticksUntilCleanup = 200;
+    private static boolean recoveredPersistentTags = false;
     private static final Map<UUID, Long> tracked = new ConcurrentHashMap<>();
     private static final long SPECIAL_DESPAWN_MILLIS = 15L * 60L * 1000L;
     private static final String SPECIAL_TAG = "champutils_special_spawn";
@@ -79,6 +81,9 @@ public final class SpecialWildSpawnManager {
     private static UUID lastSpecialSpawnPlayer = null;
     private static UUID lastParadoxSpawnPlayer = null;
     private static UUID lastUltraBeastSpawnPlayer = null;
+    // Shared across legendary/mythical-pool, Paradox and Ultra Beast rolls so changing
+    // categories cannot immediately target the same player again.
+    private static UUID lastHeadlineRareSpawnPlayer = null;
     private static final double PLAYER_PITY_PER_MISSED_ROLL = 0.005D; // +0.5% player priority per missed eligible roll
     private static final double PLAYER_PITY_MAX = 0.50D; // capped at +50% priority weight
     private static final int RECENT_SPECIES_LIMIT = 5;
@@ -92,6 +97,7 @@ public final class SpecialWildSpawnManager {
     public static void tick(MinecraftServer server) {
         if (!SpecialWildSpawnConfig.DATA.enabled) return;
         ensureStateLoaded();
+        cleanupTrackedVoidFalls(server);
 
         ticksUntilCleanup--;
         if (ticksUntilCleanup <= 0) {
@@ -287,10 +293,8 @@ public final class SpecialWildSpawnManager {
         }
 
         Collections.shuffle(players, RANDOM);
-        if (players.size() > 1 && lastParadoxSpawnPlayer != null) {
-            players.removeIf(p -> p.getUUID().equals(lastParadoxSpawnPlayer));
-            if (players.isEmpty()) return;
-        }
+        excludePreviousRareRecipient(players, lastParadoxSpawnPlayer);
+        if (players.isEmpty()) return;
 
         ServerPlayer player = pickPlayerByParadoxPity(players, islanderRoll);
         if (player == null) return;
@@ -316,6 +320,7 @@ public final class SpecialWildSpawnManager {
             debug("Paradox spawn succeeded: " + result.species + " at " + result.pos.getX() + "," + result.pos.getY() + "," + result.pos.getZ() + " in " + result.level.dimension().location());
             recordParadoxPityOutcome(players, Set.of(result.playerUuid), islanderRoll);
             lastParadoxSpawnPlayer = result.playerUuid;
+            lastHeadlineRareSpawnPlayer = result.playerUuid;
             markParadoxSpawned(result.type, result.species, islanderRoll, worldKey(result.level));
             announce(server, result.type, result.species, result.level, result.pos, result.playerUuid);
         } else {
@@ -338,6 +343,13 @@ public final class SpecialWildSpawnManager {
         runUltraBeastSpawnRoll(server, intervalTicks, true);
     }
 
+    private static void excludePreviousRareRecipient(List<ServerPlayer> players, UUID categoryLastRecipient) {
+        if (players == null || players.size() <= 1) return;
+        UUID excluded = lastHeadlineRareSpawnPlayer != null ? lastHeadlineRareSpawnPlayer : categoryLastRecipient;
+        if (excluded == null) return;
+        players.removeIf(player -> player != null && excluded.equals(player.getUUID()));
+    }
+
     private static void runUltraBeastSpawnRoll(MinecraftServer server, int intervalTicks, boolean islanderRoll) {
         runUltraBeastSpawnRoll(server, intervalTicks, islanderRoll, null);
     }
@@ -357,10 +369,8 @@ public final class SpecialWildSpawnManager {
         }
 
         Collections.shuffle(players, RANDOM);
-        if (players.size() > 1 && lastUltraBeastSpawnPlayer != null) {
-            players.removeIf(p -> p.getUUID().equals(lastUltraBeastSpawnPlayer));
-            if (players.isEmpty()) return;
-        }
+        excludePreviousRareRecipient(players, lastUltraBeastSpawnPlayer);
+        if (players.isEmpty()) return;
 
         ServerPlayer player = pickPlayerByUltraBeastPity(players, islanderRoll);
         if (player == null) return;
@@ -383,6 +393,7 @@ public final class SpecialWildSpawnManager {
         if (result != null) {
             recordUltraBeastPityOutcome(players, Set.of(result.playerUuid), islanderRoll);
             lastUltraBeastSpawnPlayer = result.playerUuid;
+            lastHeadlineRareSpawnPlayer = result.playerUuid;
             markUltraBeastSpawned(result.type, result.species, islanderRoll, worldKey(result.level));
             announce(server, result.type, result.species, result.level, result.pos, result.playerUuid);
         } else {
@@ -408,10 +419,8 @@ public final class SpecialWildSpawnManager {
         }
 
         Collections.shuffle(players, RANDOM);
-        if (players.size() > 1 && lastSpecialSpawnPlayer != null) {
-            players.removeIf(p -> p.getUUID().equals(lastSpecialSpawnPlayer));
-            if (players.isEmpty()) return;
-        }
+        excludePreviousRareRecipient(players, lastSpecialSpawnPlayer);
+        if (players.isEmpty()) return;
         boolean rareTripleEvent = SpecialWildSpawnConfig.DATA.rareTripleSpawnEventEnabled
                 && RANDOM.nextDouble() < Math.max(0.0D, Math.min(1.0D, SpecialWildSpawnConfig.DATA.rareTripleSpawnEventChance));
 
@@ -440,6 +449,7 @@ public final class SpecialWildSpawnManager {
         if (result != null) {
             recordPityOutcome(players, Set.of(result.playerUuid), islanderRoll);
             lastSpecialSpawnPlayer = result.playerUuid;
+            lastHeadlineRareSpawnPlayer = result.playerUuid;
             markSpawned(result.type, result.species, false, islanderRoll, worldKey(result.level));
             announce(server, result.type, result.species, result.level, result.pos);
         } else {
@@ -568,12 +578,32 @@ public final class SpecialWildSpawnManager {
         announceRareTripleEvent(server, results);
     }
 
+    private static void cleanupTrackedVoidFalls(MinecraftServer server) {
+        if (server == null || tracked.isEmpty()) return;
+        tracked.keySet().removeIf(id -> {
+            for (ServerLevel level : server.getAllLevels()) {
+                Entity entity = level.getEntity(id);
+                if (entity == null) continue;
+                if (entity.getY() < level.getMinBuildHeight() - 16.0D) {
+                    removeSpecialSpawnEntity(entity);
+                    debug("Removed special spawn " + id + " after it fell into the void in " + level.dimension().location());
+                    return true;
+                }
+                return false;
+            }
+            return false;
+        });
+    }
+
     public static void cleanupTracked(MinecraftServer server) {
         long now = System.currentTimeMillis();
 
-        // Rebuild tracking from persistent entity scoreboard tags. This fixes special spawns
-        // surviving restarts or any case where the in-memory map missed the spawned entity.
-        recoverTaggedSpecialSpawns(server);
+        // Full-world entity scans are expensive. Recover persistent tags only at startup/rare intervals;
+        // the in-memory tracked map remains authoritative between recoveries.
+        if (!recoveredPersistentTags) {
+            recoveredPersistentTags = true;
+            recoverTaggedSpecialSpawns(server);
+        }
 
         tracked.entrySet().removeIf(entry -> {
             UUID id = entry.getKey();
@@ -594,8 +624,7 @@ public final class SpecialWildSpawnManager {
             return true;
         });
 
-        // Safety net: if a tagged entity was not in the map for any reason, still remove it.
-        removeExpiredTaggedSpecialSpawns(server, now);
+
     }
 
     private static void recoverTaggedSpecialSpawns(MinecraftServer server) {
@@ -695,11 +724,11 @@ public final class SpecialWildSpawnManager {
 
     private static int activeParadoxOrUltraBeastCount(MinecraftServer server) {
         if (server == null) return 0;
-        cleanupTracked(server);
         int count = 0;
-        for (ServerLevel level : server.getAllLevels()) {
-            for (Entity entity : level.getAllEntities()) {
-                if (entity != null && entity.isAlive() && isTaggedSpecialSpawn(entity) && isParadoxOrUltraBeastSpecial(entity)) count++;
+        for (UUID id : tracked.keySet()) {
+            for (ServerLevel level : server.getAllLevels()) {
+                Entity entity = level.getEntity(id);
+                if (entity != null && entity.isAlive() && isParadoxOrUltraBeastSpecial(entity)) { count++; break; }
             }
         }
         return count;
@@ -1421,7 +1450,11 @@ public final class SpecialWildSpawnManager {
             SpecialWildSpawnConfig.SpawnEntry picked = pickWeighted(validAtPos);
             if (picked == null) continue;
 
-            int pokemonLevel = pickLevel(bucket.levelRange);
+            // Special spawns use the progression cap of the specific player whose roll selected
+            // this spawn. This keeps legendary, mythical, paradox, and ultra-beast encounters
+            // appropriate for that player's current gym progression instead of using the pool's
+            // configured random level range.
+            int pokemonLevel = GymLevelCapUtil.currentWildCap(player);
 
             // Use a direct Cobblemon entity spawn first instead of going through the normal spawn action/pool.
             // This keeps special spawns independent from the player's nearby Cobblemon spawn cap.

@@ -75,10 +75,10 @@ public final class PlayerContractMenu {
         gui.setSlot(25, new GuiElementBuilder(Items.ANVIL)
                 .hideDefaultTooltip()
                 .setName(Component.literal("§6Create Item Contract"))
-                .addLoreLine(Component.literal("§7Hold the requested item stack,"))
-                .addLoreLine(Component.literal("§7then choose the reward."))
+                .addLoreLine(Component.literal("§7Type the item name, quantity,"))
+                .addLoreLine(Component.literal("§7and total Credits payment."))
                 .addLoreLine(Component.literal("§eClick to create"))
-                .setCallback((slot, click, action) -> openCreateItem(player)));
+                .setCallback((slot, click, action) -> PlayerContractService.beginItemContract(player)));
 
         gui.setSlot(31, new GuiElementBuilder(CobblemonItems.GREAT_BALL)
                 .hideDefaultTooltip()

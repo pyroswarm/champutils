@@ -66,6 +66,9 @@ public class RankManager {
                 newRank.min_elo > oldRank.min_elo;
 
         if (rankUp) {
+            String rankId = normalizeRankId(newRank.name);
+            com.champutils.cosmetic.TitleManager.unlock(player, "rank_reached_" + rankId);
+            com.champutils.worldfirst.WorldFirstManager.award(player, "first_rank_" + rankId);
             onRankUp(player, oldRank, newRank);
         }
         else {
@@ -501,5 +504,9 @@ public class RankManager {
                     Component.literal(msg)
             );
         }
+    }
+
+    private static String normalizeRankId(String name) {
+        return name == null ? "unknown" : name.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "_").replaceAll("^_+|_+$", "");
     }
 }

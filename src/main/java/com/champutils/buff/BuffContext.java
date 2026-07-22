@@ -66,6 +66,7 @@ public final class BuffContext {
         if (type.isCatchBuff()) return allowsPokemonCatchBuffs();
         if (type.isProfessionXp()) return allowsProfessionXpBuffs();
         if (type == BuffType.POKEMON_XP) return source == Source.PROFESSION_XP || source == Source.NPC_BATTLE || source == Source.UNKNOWN;
+        if (type == BuffType.CHUNK_CHANCE) return source == Source.PROFESSION_XP && profession != null;
         if (type == BuffType.ADVENTURER_MARKS) return source == Source.GUILD_ACTIVITY;
         return false;
     }

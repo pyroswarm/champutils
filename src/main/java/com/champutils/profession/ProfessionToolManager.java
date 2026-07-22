@@ -27,6 +27,8 @@ import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.Tier;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Tiers;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.CustomModelData;
@@ -2834,8 +2836,14 @@ public class ProfessionToolManager {
                     .registryOrThrow(Registries.ENCHANTMENT)
                     .getHolderOrThrow(Enchantments.EFFICIENCY);
             ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(stack.getEnchantments());
-            if (mutable.getLevel(efficiency) != level) {
-                mutable.set(efficiency, level);
+            boolean changed = false;
+            if (mutable.getLevel(efficiency) != level) { mutable.set(efficiency, level); changed = true; }
+            String baseId = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
+            if (baseId.endsWith("_hoe")) {
+                Holder<Enchantment> silkTouch = player.registryAccess().registryOrThrow(Registries.ENCHANTMENT).getHolderOrThrow(Enchantments.SILK_TOUCH);
+                if (mutable.getLevel(silkTouch) < 1) { mutable.set(silkTouch, 1); changed = true; }
+            }
+            if (changed) {
                 stack.set(DataComponents.ENCHANTMENTS, mutable.toImmutable());
                 player.getInventory().setChanged();
             }
@@ -3072,6 +3080,31 @@ public class ProfessionToolManager {
         }
 
         @Override
+        public InteractionResult useOn(UseOnContext context) {
+            ItemStack stack = context.getItemInHand();
+            if (!ProfessionToolMetadata.isProfessionTool(stack)) {
+                return super.useOn(context);
+            }
+
+            ItemStack snapshot = stack.copy();
+            stack.remove(DataComponents.MAX_DAMAGE);
+            stack.remove(DataComponents.DAMAGE);
+            InteractionResult result = super.useOn(context);
+
+            if (context.getPlayer() != null) {
+                context.getPlayer().setItemInHand(context.getHand(), snapshot);
+                if (!context.getPlayer().level().isClientSide && result.consumesAction()) {
+                    ProfessionToolManager.damageTool(
+                            context.getPlayer().getItemInHand(context.getHand()),
+                            1,
+                            asServerPlayer(context.getPlayer())
+                    );
+                }
+            }
+            return result;
+        }
+
+        @Override
         public boolean mineBlock(
                 ItemStack stack,
                 Level level,
@@ -3200,6 +3233,35 @@ public class ProfessionToolManager {
         }
 
         @Override
+        public InteractionResult useOn(UseOnContext context) {
+            ItemStack stack = context.getItemInHand();
+            if (!ProfessionToolMetadata.isProfessionTool(stack)) {
+                return super.useOn(context);
+            }
+
+            // Never let vanilla durability touch a profession tool. Temporarily removing
+            // the vanilla damage components makes ItemStack#hurtAndBreak a no-op while
+            // HoeItem performs its normal tilling/rooted-dirt interaction. This prevents
+            // the stack from reaching empty before any post-use restoration can run.
+            ItemStack snapshot = stack.copy();
+            stack.remove(DataComponents.MAX_DAMAGE);
+            stack.remove(DataComponents.DAMAGE);
+            InteractionResult result = super.useOn(context);
+
+            if (context.getPlayer() != null) {
+                context.getPlayer().setItemInHand(context.getHand(), snapshot);
+                if (!context.getPlayer().level().isClientSide && result.consumesAction()) {
+                    ProfessionToolManager.damageTool(
+                            context.getPlayer().getItemInHand(context.getHand()),
+                            1,
+                            asServerPlayer(context.getPlayer())
+                    );
+                }
+            }
+            return result;
+        }
+
+        @Override
         public boolean mineBlock(
                 ItemStack stack,
                 Level level,
@@ -3313,6 +3375,31 @@ public class ProfessionToolManager {
                     stack,
                     state
             );
+        }
+
+        @Override
+        public InteractionResult useOn(UseOnContext context) {
+            ItemStack stack = context.getItemInHand();
+            if (!ProfessionToolMetadata.isProfessionTool(stack)) {
+                return super.useOn(context);
+            }
+
+            ItemStack snapshot = stack.copy();
+            stack.remove(DataComponents.MAX_DAMAGE);
+            stack.remove(DataComponents.DAMAGE);
+            InteractionResult result = super.useOn(context);
+
+            if (context.getPlayer() != null) {
+                context.getPlayer().setItemInHand(context.getHand(), snapshot);
+                if (!context.getPlayer().level().isClientSide && result.consumesAction()) {
+                    ProfessionToolManager.damageTool(
+                            context.getPlayer().getItemInHand(context.getHand()),
+                            1,
+                            asServerPlayer(context.getPlayer())
+                    );
+                }
+            }
+            return result;
         }
 
         @Override

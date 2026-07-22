@@ -292,9 +292,11 @@ public class ForestryProfessionListener {
                         "fortuneChance"
                 );
 
-        boolean duplicateDrops =
-                professionFortuneChance > 0.0D &&
-                        RANDOM.nextDouble() * 100.0D < Math.min(100.0D, professionFortuneChance);
+        int fortuneMultiplier = 1;
+        if (professionFortuneChance > 0.0D
+                && RANDOM.nextDouble() * 100.0D < Math.min(100.0D, professionFortuneChance)) {
+            fortuneMultiplier = rollFortuneLogMultiplier(player, tool);
+        }
 
         level.setBlock(
                 pos,
@@ -313,12 +315,10 @@ public class ForestryProfessionListener {
                     true
             );
 
-            if (duplicateDrops) {
-                ProfessionBackpackManager.giveOrDrop(
-                        player,
-                        drop.copy(),
-                        true
-                );
+            if (fortuneMultiplier > 1) {
+                ItemStack extra = drop.copy();
+                extra.setCount(Math.max(1, drop.getCount()) * (fortuneMultiplier - 1));
+                ProfessionBackpackManager.giveOrDrop(player, extra, true);
             }
         }
 

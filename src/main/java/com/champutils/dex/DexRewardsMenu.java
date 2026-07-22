@@ -43,12 +43,20 @@ public final class DexRewardsMenu {
             ChatFormatting color = claimed ? ChatFormatting.GREEN : unlocked ? ChatFormatting.GOLD : ChatFormatting.RED;
             String status = claimed ? "Claimed" : unlocked ? "Ready to Claim" : "Locked";
 
+            DexRewardConfig.DexRewardTier rewardTier = DexRewardConfig.getTier(percent);
             GuiElementBuilder button = new GuiElementBuilder(CobblemonItems.POKE_BALL)
                     .hideDefaultTooltip()
-                    .setName(Component.literal(color + String.valueOf(percent) + "% Reward"))
+                    .setName(Component.literal(color + rewardTier.displayName))
                     .addLoreLine(Component.literal("§7Status: " + color + status))
                     .addLoreLine(Component.literal("§7Progress: §f" + caught + "§7/§f" + total + " §8(" + String.format("%.2f", exactPercent) + "%)"))
                     .addLoreLine(Component.literal("§7Required: §f" + required + " unique caught"));
+
+            if (rewardTier.commands != null && !rewardTier.commands.isEmpty()) {
+                button.addLoreLine(Component.literal("§8Rewards:"));
+                for (String command : rewardTier.commands) {
+                    button.addLoreLine(Component.literal("§7- §f" + prettyCommand(command)));
+                }
+            }
 
             if (!claimed && unlocked) {
                 button.addLoreLine(Component.literal("§eClick to claim"));
@@ -70,4 +78,52 @@ public final class DexRewardsMenu {
 
         gui.open();
     }
+    private static String prettyCommand(String command) {
+        if (command == null || command.isBlank()) {
+            return "Unknown reward";
+        }
+
+        String normalized = command.trim().replace("%player%", "you");
+        String[] parts = normalized.split("\\s+");
+        if (parts.length >= 4 && parts[0].equalsIgnoreCase("give") && parts[1].equalsIgnoreCase("you")) {
+            String itemId = parts[2];
+            String amount = parts[3];
+            return amount + "x " + prettyId(itemId);
+        }
+        if (parts.length >= 4 && parts[0].equalsIgnoreCase("eco") && parts[1].equalsIgnoreCase("give") && parts[2].equalsIgnoreCase("you")) {
+            return "$" + formatNumber(parts[3]);
+        }
+        if (parts.length >= 5 && parts[0].equalsIgnoreCase("opencrates") && parts[1].equalsIgnoreCase("givecredit") && parts[2].equalsIgnoreCase("you")) {
+            return parts[4] + "x " + parts[3].toUpperCase() + " Rank Crate Credit";
+        }
+        if (parts.length >= 3 && parts[0].equalsIgnoreCase("title") && parts[1].equalsIgnoreCase("you")) {
+            return "Pokédex completion title";
+        }
+        return normalized.replace("give you ", "");
+    }
+
+    private static String prettyId(String id) {
+        String value = id;
+        int colon = value.indexOf(':');
+        if (colon >= 0 && colon + 1 < value.length()) {
+            value = value.substring(colon + 1);
+        }
+        String[] words = value.split("_");
+        StringBuilder result = new StringBuilder();
+        for (String word : words) {
+            if (word.isEmpty()) continue;
+            if (!result.isEmpty()) result.append(' ');
+            result.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return result.toString();
+    }
+
+    private static String formatNumber(String value) {
+        try {
+            return String.format("%,d", Long.parseLong(value));
+        } catch (NumberFormatException ignored) {
+            return value;
+        }
+    }
+
 }

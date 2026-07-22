@@ -202,6 +202,7 @@ public final class LandClaimRepository {
 
     public static CreateResult create(ServerPlayer player, ServerLevel level, int minX, int maxX, int minZ, int maxZ) {
         if (player == null || level == null) return CreateResult.fail("Player/world missing.");
+        if (PlayerProfileManager.isIslander(player)) return CreateResult.fail("Islander profiles cannot claim land. Your island is your home.");
         if (!DatabaseManager.isEnabled()) return CreateResult.fail("Land claims require the SQL database.");
         UUID profileId = PlayerProfileManager.activeProfileId(player);
         if (profileId == null) return CreateResult.fail("You must select and load a profile before creating land claims.");
@@ -312,46 +313,34 @@ public final class LandClaimRepository {
         }
     }
 
-    public static boolean addMember(ServerPlayer owner, Claim claim, ServerPlayer friend) {
-        return friend != null && addMember(owner, claim, PlayerProfileManager.activeProfileId(friend));
-    }
-
-    public static boolean addMember(ServerPlayer owner, Claim claim, UUID friendProfile) {
-        if (!isOwner(owner, claim) || friendProfile == null || !DatabaseManager.isEnabled()) return false;
-        if (friendProfile.equals(claim.profileId)) return false;
-        try {
-            Connection connection = DatabaseManager.getConnection();
+    public static java.util.concurrent.CompletableFuture<Boolean> addMemberAsync(ServerPlayer owner, Claim claim, UUID friendProfile) {
+        if (!isOwner(owner, claim) || friendProfile == null || !DatabaseManager.isEnabled() || friendProfile.equals(claim.profileId))
+            return java.util.concurrent.CompletableFuture.completedFuture(false);
+        return DatabaseManager.supplyAsync("add land claim member", connection -> {
             ensureSchema(connection);
             try (PreparedStatement ps = connection.prepareStatement("insert into profile_land_claim_members(claim_id, profile_id, added_by_profile_id) values (?, ?, ?) on conflict do nothing")) {
-                ps.setObject(1, claim.id, Types.OTHER);
-                ps.setObject(2, friendProfile, Types.OTHER);
-                ps.setObject(3, claim.profileId, Types.OTHER);
-                ps.executeUpdate();
+                ps.setObject(1, claim.id, Types.OTHER); ps.setObject(2, friendProfile, Types.OTHER); ps.setObject(3, claim.profileId, Types.OTHER);
+                return ps.executeUpdate() > 0;
             }
-            claim.memberProfileIds.add(friendProfile);
-            com.champutils.network.NetworkEventManager.publishCacheInvalidation("LAND_CLAIMS", claim.id);
-            return true;
-        } catch (Exception e) { e.printStackTrace(); return false; }
+        }).thenApply(changed -> {
+            if (changed) { claim.memberProfileIds.add(friendProfile); com.champutils.network.NetworkEventManager.publishCacheInvalidation("LAND_CLAIMS", claim.id); }
+            return changed;
+        });
     }
 
-    public static boolean removeMember(ServerPlayer owner, Claim claim, ServerPlayer friend) {
-        return friend != null && removeMember(owner, claim, PlayerProfileManager.activeProfileId(friend));
-    }
-
-    public static boolean removeMember(ServerPlayer owner, Claim claim, UUID friendProfile) {
-        if (!isOwner(owner, claim) || friendProfile == null || !DatabaseManager.isEnabled()) return false;
-        try {
-            Connection connection = DatabaseManager.getConnection();
+    public static java.util.concurrent.CompletableFuture<Boolean> removeMemberAsync(ServerPlayer owner, Claim claim, UUID friendProfile) {
+        if (!isOwner(owner, claim) || friendProfile == null || !DatabaseManager.isEnabled())
+            return java.util.concurrent.CompletableFuture.completedFuture(false);
+        return DatabaseManager.supplyAsync("remove land claim member", connection -> {
             ensureSchema(connection);
             try (PreparedStatement ps = connection.prepareStatement("delete from profile_land_claim_members where claim_id = ? and profile_id = ?")) {
-                ps.setObject(1, claim.id, Types.OTHER);
-                ps.setObject(2, friendProfile, Types.OTHER);
-                ps.executeUpdate();
+                ps.setObject(1, claim.id, Types.OTHER); ps.setObject(2, friendProfile, Types.OTHER);
+                return ps.executeUpdate() > 0;
             }
-            claim.memberProfileIds.remove(friendProfile);
-            com.champutils.network.NetworkEventManager.publishCacheInvalidation("LAND_CLAIMS", claim.id);
-            return true;
-        } catch (Exception e) { e.printStackTrace(); return false; }
+        }).thenApply(changed -> {
+            if (changed) { claim.memberProfileIds.remove(friendProfile); com.champutils.network.NetworkEventManager.publishCacheInvalidation("LAND_CLAIMS", claim.id); }
+            return changed;
+        });
     }
 
     public static boolean overlapsCachedExcept(ServerLevel level, UUID exceptClaimId, int minX, int maxX, int minZ, int maxZ) {

@@ -418,9 +418,12 @@ public final class ServerBuffManager {
             return;
         }
         long remaining = Math.max(1L, boost.expiresAt - now);
-        if (type == 0) com.champutils.specialspawn.SpecialWildSpawnManager.activateCashShopBoost(boost.amount, remaining);
-        else if (type == 1) com.champutils.specialspawn.SpecialWildSpawnManager.activateParadoxCashShopBoost(boost.amount, remaining);
-        else com.champutils.specialspawn.SpecialWildSpawnManager.activateUltraBeastCashShopBoost(boost.amount, remaining);
+        // These three boosters are defined as +100% spawn chance. Clamp legacy persisted
+        // +50% records to the current value so every eligible spawn check is truly doubled.
+        double effectiveAmount = Math.max(1.0D, boost.amount);
+        if (type == 0) com.champutils.specialspawn.SpecialWildSpawnManager.activateCashShopBoost(effectiveAmount, remaining);
+        else if (type == 1) com.champutils.specialspawn.SpecialWildSpawnManager.activateParadoxCashShopBoost(effectiveAmount, remaining);
+        else com.champutils.specialspawn.SpecialWildSpawnManager.activateUltraBeastCashShopBoost(effectiveAmount, remaining);
     }
 
     private static void publishInvalidation() {

@@ -159,6 +159,16 @@ public class MiningProfessionListener {
                     if (isShovelBlock && hasMiningTool) {
                         handleShovelDiggingProgress(serverPlayer, serverPlayer.serverLevel(), pos, blockId);
 
+                        // Shovel blocks return before the normal pickaxe passive path below.
+                        // Apply mining passives here so Fossil Finder can roll on natural
+                        // dirt, gravel, sand, clay, mud, soul sand, and other shovel blocks.
+                        PassiveRegistry.applyMiningPassives(
+                                serverPlayer,
+                                serverPlayer.serverLevel(),
+                                pos,
+                                blockId
+                        );
+
                         if (!isBreakingExtraBlock(
                                 serverPlayer
                         )) {
@@ -240,10 +250,7 @@ public class MiningProfessionListener {
                             blockId
                     );
 
-                    ProfessionLootManager.rollReward(
-                            serverPlayer,
-                            ProfessionType.MINING
-                    );
+                    rollMiningChunkReward(serverPlayer, blockId);
 
                     if (
                             MiningBlockUtil.isPickaxeBlock(
@@ -293,6 +300,22 @@ public class MiningProfessionListener {
                     return true;
                 }
         );
+    }
+
+    /**
+     * Mining profession chunks are intentionally limited to natural ore blocks.
+     * Stone, deepslate, shovel blocks, terrain blocks, and other configured XP
+     * blocks may still grant profession progress, but can never roll chunks.
+     */
+    private static void rollMiningChunkReward(ServerPlayer player, String blockId) {
+        if (!isChunkEligibleOre(blockId)) return;
+        ProfessionLootManager.rollReward(player, ProfessionType.MINING);
+    }
+
+    private static boolean isChunkEligibleOre(String blockId) {
+        if (blockId == null || blockId.isBlank()) return false;
+        String normalized = blockId.trim().toLowerCase(java.util.Locale.ROOT);
+        return normalized.endsWith("_ore") || normalized.equals("minecraft:ancient_debris");
     }
 
     private static boolean isStoneTypeBlock(String blockId) {
@@ -356,11 +379,7 @@ public class MiningProfessionListener {
                 blockId
         );
 
-        // Stone Finder/reward rolls must also happen during regular mining, not only burst mining.
-        ProfessionLootManager.rollReward(
-                player,
-                ProfessionType.MINING
-        );
+        // Stone still grants its throttled Mining XP, but chunk rewards are ore-only.
         PassiveRegistry.applyMiningPassives(
                 player,
                 level,
@@ -552,10 +571,7 @@ public class MiningProfessionListener {
                     blockId
             );
 
-            ProfessionLootManager.rollReward(
-                    player,
-                    ProfessionType.MINING
-            );
+            rollMiningChunkReward(player, blockId);
                 // Profession fragment drops removed; use chunks -> Foreman trades instead.
         }
 
@@ -957,10 +973,7 @@ public class MiningProfessionListener {
                     extraXp
             );
 
-            ProfessionLootManager.rollReward(
-                    player,
-                    ProfessionType.MINING
-            );
+            rollMiningChunkReward(player, targetBlockId);
                 // Profession fragment drops removed; use chunks -> Foreman trades instead.
         }
 
@@ -1359,7 +1372,7 @@ public class MiningProfessionListener {
                         ProfessionManager.addXp(player, ProfessionType.MINING, extraXp);
                         ProfessionSubLevelManager.addBlockXp(player, ProfessionType.MINING, targetBlockId, extraXp);
                         com.champutils.quest.QuestManager.recordBlock(player, ProfessionType.MINING, targetBlockId);
-                        ProfessionLootManager.rollReward(player, ProfessionType.MINING);
+                        rollMiningChunkReward(player, targetBlockId);
                 // Profession fragment drops removed; use chunks -> Foreman trades instead.
                     }
                 }

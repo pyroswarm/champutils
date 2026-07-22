@@ -224,6 +224,9 @@ public final class AntiAfkManager {
                 player.sendSystemMessage(Component.literal("§eYou look AFK. Do something real soon or you will be kicked."));
             }
             if (kickPlayer) {
+                // End the profile playtime session before disconnect callbacks flush it,
+                // so the AFK interval cannot be counted again after the kick.
+                com.champutils.profile.ProfilePlaytimeManager.clearSession(player);
                 player.connection.disconnect(Component.literal("Kicked for being AFK."));
             }
         }

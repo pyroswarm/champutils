@@ -60,11 +60,22 @@ public final class AdventurerGuildMenu {
         MenuUtil.addOpenButton(gui, 19, Items.BOOK, "§aAdventure Guide", () -> AdventureGuideMenu.open(player),
                 "§7One-time guide missions that", "§7teach every Cobble Champs system.");
 
-        MenuUtil.addOpenButton(gui, 21, Items.TRIAL_KEY, "§6Claim Rank Reward", () -> {
-                    AdventurerGuildManager.claimNextRankReward(player);
-                    open(player);
-                },
-                "§7Claim the next Adventurer Rank", "§7reward you have unlocked.");
+        AdventurerGuildConfig.RankDefinition claimableRank = nextClaimableRank(data);
+        GuiElementBuilder rankRewardButton = new GuiElementBuilder(Items.TRIAL_KEY).hideDefaultTooltip()
+                .setName(Component.literal("§6Claim Rank Reward"));
+        if (claimableRank == null) {
+            rankRewardButton.addLoreLine(Component.literal("§7No unlocked rank reward is ready."));
+        } else {
+            rankRewardButton.addLoreLine(Component.literal("§7Next claim: §f" + claimableRank.displayName));
+            rankRewardButton.addLoreLine(Component.literal("§6Reward Preview:"));
+            for (Component line : AdventurerGuildManager.rankRewardPreview(claimableRank)) rankRewardButton.addLoreLine(line);
+            rankRewardButton.addLoreLine(Component.literal("§eClick to claim."));
+        }
+        rankRewardButton.setCallback((slot, click, action) -> {
+            AdventurerGuildManager.claimNextRankReward(player);
+            open(player);
+        });
+        gui.setSlot(21, rankRewardButton);
 
         MenuUtil.addOpenButton(gui, 23, Items.NETHER_STAR, "§dPvP Token Shop", () -> RankedShopMenu.open(player),
                 "§7Spend Ranked Tokens from PvP.", "§7Ranked wins are the main source.");
@@ -166,6 +177,11 @@ public final class AdventurerGuildMenu {
     }
 
     public static void openRoamingLeague(ServerPlayer player) {
+        if (AdventurerGuildManager.isPlayerRequestRestricted(player)) {
+            player.closeContainer();
+            player.sendSystemMessage(Component.literal("Adventurer player requests are unavailable on Islander, Ironman, and Nuzlocke profiles.").withStyle(net.minecraft.ChatFormatting.RED));
+            return;
+        }
         AdventurerGuildDataManager.PlayerData data = AdventurerGuildManager.getData(player);
         SimpleGui gui = MenuUtil.createGui(MenuType.GENERIC_9x4, player);
         gui.setTitle(Component.literal("Adventurer Requests"));
@@ -192,7 +208,8 @@ public final class AdventurerGuildMenu {
                     .addLoreLine(Component.literal("§7Cost: §6" + (free ? "Daily Free Request" : EconomyManager.formatWholeCredits(entry.creditCost))))
                     .addLoreLine(Component.literal("§6Adventure Rewards:"))
                     .addLoreLine(Component.literal("§7• §e" + entry.rewardRenown + " Adventurer XP"))
-                    .addLoreLine(Component.literal("§7• §b" + entry.rewardMarks + " Adventurer's Marks"));
+                    .addLoreLine(Component.literal("§7• §b" + entry.rewardMarks + " Adventurer's Marks"))
+                    .addLoreLine(Component.literal("§7• §6" + EconomyManager.formatWholeCredits(entry.rewardCredits)));
             item.addLoreLine(Component.literal(unlocked ? "§eClick to request Adventurer" : "§cLocked"));
             if (unlocked) {
                 item.setCallback((slot, click, action) -> AdventurerGuildManager.startRoamingLeague(player, rarity));
@@ -202,6 +219,20 @@ public final class AdventurerGuildMenu {
 
         MenuUtil.addBackButton(gui, 31, () -> open(player));
         gui.open();
+    }
+
+
+    private static AdventurerGuildConfig.RankDefinition nextClaimableRank(AdventurerGuildDataManager.PlayerData data) {
+        AdventurerGuildConfig.RankDefinition best = null;
+        if (data == null || AdventurerGuildConfig.SETTINGS.ranks == null) return null;
+        for (AdventurerGuildConfig.RankDefinition rank : AdventurerGuildConfig.SETTINGS.ranks) {
+            if (rank == null || rank.id == null) continue;
+            boolean hasReward = rank.rewardCredits > 0 || rank.rewardMarks > 0 || (rank.rewardCommands != null && !rank.rewardCommands.isEmpty());
+            if (!hasReward || data.renown < Math.max(0, rank.renownRequired)) continue;
+            if (data.claimedRankRewards.contains(rank.id.toUpperCase(java.util.Locale.ROOT))) continue;
+            if (best == null || rank.renownRequired < best.renownRequired) best = rank;
+        }
+        return best;
     }
 
     private static String readySuffix(boolean ready) {

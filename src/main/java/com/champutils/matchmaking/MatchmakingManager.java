@@ -90,6 +90,12 @@ public class MatchmakingManager {
     private static final int MATCHMAKING_FAILURE_WINDOW_TICKS = 30 * 60 * 20;
     private static final int MATCHMAKING_BLOCK_TICKS = 30 * 60 * 20;
     private static final int MATCHMAKING_FAILURE_LIMIT = 3;
+    private static final int FAKE_BATTLE_WINDOW_TICKS = 30 * 60 * 20;
+    private static final int FAKE_BATTLE_BLOCK_TICKS = 60 * 60 * 20;
+    private static final int FAKE_BATTLE_LIMIT = 3;
+
+    private static final Map<UUID, List<Integer>> FAKE_BATTLE_FORFEITS =
+            new HashMap<>();
 
     private static final Map<UUID, List<Integer>> MATCHMAKING_FAILURES =
             new HashMap<>();
@@ -581,7 +587,11 @@ public class MatchmakingManager {
     private static void applyRemotePendingSession(net.minecraft.server.MinecraftServer server, GlobalMatchmakingRepository.Session session) {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             if (!GlobalMatchmakingRepository.hasPlayer(session, player.getUUID())) continue;
-            if (ACCEPTANCE.containsKey(player.getUUID()) || REMOTE_ACCEPTANCE.containsKey(player.getUUID())) continue;
+            if (ACCEPTANCE.containsKey(player.getUUID())) continue;
+            if (REMOTE_ACCEPTANCE.containsKey(player.getUUID())) {
+                MatchAcceptanceMenu.ensureOpen(player, session.queueType());
+                continue;
+            }
             UUID opponent = GlobalMatchmakingRepository.opponent(session, player.getUUID());
             String opponentName = GlobalMatchmakingRepository.opponentName(session, player.getUUID());
             REMOTE_ACCEPTANCE.put(player.getUUID(), new RemotePendingAcceptance(session, opponent, opponentName));
@@ -1403,6 +1413,9 @@ public class MatchmakingManager {
                 handleAcceptanceFailure(pending, failed, "left the server");
                 continue;
             }
+            // Retry the GUI periodically. Network/container timing can occasionally drop the initial open packet.
+            MatchAcceptanceMenu.ensureOpen(pending.p1, pending.type);
+            MatchAcceptanceMenu.ensureOpen(pending.p2, pending.type);
             pending.ticksLeft--;
             if (pending.ticksLeft <= 0) {
                 ServerPlayer failed = !ACCEPTED_MATCH.contains(pending.p1.getUUID()) ? pending.p1 : pending.p2;
@@ -1458,6 +1471,35 @@ public class MatchmakingManager {
         MatchAcceptanceMenu.open(player, type);
     }
 
+
+    /**
+     * Records a forfeiter from a queued battle rejected by the shared PvP
+     * integrity rules. Three rejected forfeits inside 30 minutes impose a
+     * one-hour matchmaking cooldown. Acceptance failures are tracked separately.
+     */
+    public static void recordFakeBattleForfeit(ServerPlayer player) {
+        if (player == null) return;
+        UUID uuid = player.getUUID();
+        List<Integer> forfeits = FAKE_BATTLE_FORFEITS.computeIfAbsent(uuid, k -> new ArrayList<>());
+        forfeits.removeIf(ticks -> ticks == null || ticks <= 0);
+        forfeits.add(FAKE_BATTLE_WINDOW_TICKS);
+
+        int count = forfeits.size();
+        if (count >= FAKE_BATTLE_LIMIT) {
+            forfeits.clear();
+            MATCHMAKING_BLOCKS.merge(uuid, FAKE_BATTLE_BLOCK_TICKS, Math::max);
+            leaveQueue(player);
+            player.sendSystemMessage(Component.literal(
+                    "§cYou forfeited 3 fake matches within 30 minutes. Matchmaking is locked for 1 hour."
+            ));
+        } else {
+            player.sendSystemMessage(Component.literal(
+                    "§eFake-match forfeit warning: " + count + "/" + FAKE_BATTLE_LIMIT +
+                            " within 30 minutes. Three causes a 1-hour matchmaking cooldown."
+            ));
+        }
+    }
+
     private static boolean isMatchmakingBlocked(ServerPlayer player) {
         if (player == null) return false;
         return MATCHMAKING_BLOCKS.getOrDefault(player.getUUID(), 0) > 0;
@@ -1484,6 +1526,17 @@ public class MatchmakingManager {
     }
 
     private static void tickMatchmakingPenalties() {
+        Iterator<Map.Entry<UUID, List<Integer>>> fakeBattleIt = FAKE_BATTLE_FORFEITS.entrySet().iterator();
+        while (fakeBattleIt.hasNext()) {
+            Map.Entry<UUID, List<Integer>> entry = fakeBattleIt.next();
+            List<Integer> next = new ArrayList<>();
+            for (Integer ticks : entry.getValue()) {
+                if (ticks != null && ticks > 1) next.add(ticks - 1);
+            }
+            if (next.isEmpty()) fakeBattleIt.remove();
+            else entry.setValue(next);
+        }
+
         Iterator<Map.Entry<UUID, List<Integer>>> failureIt = MATCHMAKING_FAILURES.entrySet().iterator();
         while (failureIt.hasNext()) {
             Map.Entry<UUID, List<Integer>> entry = failureIt.next();

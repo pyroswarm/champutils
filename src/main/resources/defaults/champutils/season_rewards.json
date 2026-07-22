@@ -1,0 +1,11 @@
+{
+  "minimumRankedGames": 25,
+  "tiers": [
+    {"id":"rookie","displayName":"300 RP or below","minRp":0,"maxRp":300,"rewards":[{"type":"MONEY","id":"credits","amount":500000},{"type":"CRATE","id":"d","amount":1},{"type":"ITEM","id":"cobblemon:great_ball","amount":16},{"type":"ITEM","id":"cobblemon:exp_candy_s","amount":8}]},
+    {"id":"bronze","displayName":"301-599 RP","minRp":301,"maxRp":599,"rewards":[{"type":"MONEY","id":"credits","amount":1000000},{"type":"CRATE","id":"d","amount":2},{"type":"ITEM","id":"cobblemon:ultra_ball","amount":16},{"type":"ITEM","id":"cobblemon:rare_candy","amount":3}]},
+    {"id":"silver","displayName":"600-899 RP","minRp":600,"maxRp":899,"rewards":[{"type":"MONEY","id":"credits","amount":2000000},{"type":"CRATE","id":"c","amount":2},{"type":"ITEM","id":"cobblemon:ability_capsule","amount":2},{"type":"ITEM","id":"cobblemon:rare_candy","amount":6}]},
+    {"id":"gold","displayName":"900-1199 RP","minRp":900,"maxRp":1199,"rewards":[{"type":"MONEY","id":"credits","amount":3500000},{"type":"CRATE","id":"b","amount":2},{"type":"CRATE","id":"a","amount":1},{"type":"ITEM","id":"cobblemon:ability_patch","amount":1},{"type":"ITEM","id":"cobblemon:master_ball","amount":1}]},
+    {"id":"grand_master","displayName":"1200-1499 RP","minRp":1200,"maxRp":1499,"rewards":[{"type":"MONEY","id":"credits","amount":6000000},{"type":"CRATE","id":"a","amount":2},{"type":"CRATE","id":"s","amount":1},{"type":"ITEM","id":"cobblemon:ability_patch","amount":1},{"type":"ITEM","id":"cobblemon:master_ball","amount":1}]},
+    {"id":"monarch","displayName":"Monarch","minRp":1500,"maxRp":null,"rewards":[{"type":"MONEY","id":"credits","amount":10000000},{"type":"CRATE","id":"s","amount":2},{"type":"ITEM","id":"cobblemon:master_ball","amount":2},{"type":"ITEM","id":"cobblemon:ability_patch","amount":2},{"type":"ITEM","id":"cobblemon:rare_candy","amount":16},{"type":"ITEM","id":"cobblemon:exp_candy_xl","amount":16}]}
+  ]
+}

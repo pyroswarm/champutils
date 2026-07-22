@@ -76,16 +76,10 @@ public final class ChestShopService {
             TRANSACTION_LOCKS.add(lockKey);
         }
 
-        try {
-            if (shop.mode() == ChestShopRegistry.ShopMode.SELL) {
-                buyFromShop(player, level, pos, shop);
-            } else {
-                sellToShop(player, level, pos, shop);
-            }
-        } finally {
-            synchronized (TRANSACTION_LOCKS) {
-                TRANSACTION_LOCKS.remove(lockKey);
-            }
+        if (shop.mode() == ChestShopRegistry.ShopMode.SELL) {
+            buyFromShop(player, level, pos, shop, lockKey);
+        } else {
+            sellToShop(player, level, pos, shop, lockKey);
         }
 
         return InteractionResult.SUCCESS;
@@ -123,72 +117,87 @@ public final class ChestShopService {
         player.sendSystemMessage(Component.literal("Owner: " + shop.ownerName).withStyle(ChatFormatting.GRAY));
     }
 
-    private static void buyFromShop(ServerPlayer buyer, ServerLevel level, BlockPos pos, ChestShopRegistry.ChestShop shop) {
+    private static void buyFromShop(ServerPlayer buyer, ServerLevel level, BlockPos pos, ChestShopRegistry.ChestShop shop, String lockKey) {
         Container chest = getContainer(level, pos);
         if (chest == null) {
             buyer.sendSystemMessage(Component.literal("Shop chest not found.").withStyle(ChatFormatting.RED));
+            releaseTransactionLock(lockKey);
             return;
         }
         Item item = shop.item();
         if (item == null) {
             buyer.sendSystemMessage(Component.literal("This shop item is invalid.").withStyle(ChatFormatting.RED));
+            releaseTransactionLock(lockKey);
             return;
         }
         int amount = Math.max(1, shop.amount);
         if (countItem(chest, item) < amount) {
             buyer.sendSystemMessage(Component.literal("This shop is out of stock.").withStyle(ChatFormatting.RED));
+            releaseTransactionLock(lockKey);
             return;
         }
         if (!canFit(buyer.getInventory(), item, amount)) {
             buyer.sendSystemMessage(Component.literal("You need inventory space first.").withStyle(ChatFormatting.RED));
+            releaseTransactionLock(lockKey);
             return;
         }
         UUID ownerEconomyId = resolveOwnerEconomyId(level.getServer(), shop);
         UUID buyerProfileId = PlayerProfileManager.activeProfileId(buyer);
         if (ownerEconomyId == null || buyerProfileId == null) {
             buyer.sendSystemMessage(Component.literal("This shop owner is invalid.").withStyle(ChatFormatting.RED));
+            releaseTransactionLock(lockKey);
             return;
         }
         int removed = removeItem(chest, item, amount);
         if (removed < amount) {
             addItem(chest, new ItemStack(item, removed));
             buyer.sendSystemMessage(Component.literal("Transaction failed because the stock changed.").withStyle(ChatFormatting.RED));
+            releaseTransactionLock(lockKey);
             return;
         }
         chest.setChanged();
         EconomyManager.transferAsync(buyerProfileId, buyer.getGameProfile().getName(), ownerEconomyId, shop.ownerName, shop.price, "chest_shop_buy")
-                .thenAccept(result -> buyer.server.execute(() -> {
-                    if (!result.success) {
+                .whenComplete((result, throwable) -> buyer.server.execute(() -> {
+                    try {
+                    if (throwable != null || result == null || !result.success) {
                         addItem(chest, new ItemStack(item, amount));
                         chest.setChanged();
-                        buyer.sendSystemMessage(Component.literal(result.error == null ? "You cannot afford this shop purchase." : result.error).withStyle(ChatFormatting.RED));
+                        String error = result == null || result.error == null ? "You cannot afford this shop purchase." : result.error;
+                        buyer.sendSystemMessage(Component.literal(error).withStyle(ChatFormatting.RED));
                         return;
                     }
                     addItem(buyer.getInventory(), new ItemStack(item, amount));
                     buyer.getInventory().setChanged();
                     buyer.sendSystemMessage(Component.literal("Bought " + amount + "x " + shop.itemName + " for " + EconomyManager.format(shop.price) + ".").withStyle(ChatFormatting.GREEN));
                     notifyOwner(level.getServer(), shop.ownerUuid(), "Your shop sold " + amount + "x " + shop.itemName + " for " + EconomyManager.format(shop.price) + ".");
+                    } finally {
+                        releaseTransactionLock(lockKey);
+                    }
                 }));
     }
 
-    private static void sellToShop(ServerPlayer seller, ServerLevel level, BlockPos pos, ChestShopRegistry.ChestShop shop) {
+    private static void sellToShop(ServerPlayer seller, ServerLevel level, BlockPos pos, ChestShopRegistry.ChestShop shop, String lockKey) {
         Container chest = getContainer(level, pos);
         if (chest == null) {
             seller.sendSystemMessage(Component.literal("Shop chest not found.").withStyle(ChatFormatting.RED));
+            releaseTransactionLock(lockKey);
             return;
         }
         Item item = shop.item();
         if (item == null) {
             seller.sendSystemMessage(Component.literal("This shop item is invalid.").withStyle(ChatFormatting.RED));
+            releaseTransactionLock(lockKey);
             return;
         }
         int amount = Math.max(1, shop.amount);
         if (countItem(seller.getInventory(), item) < amount) {
             seller.sendSystemMessage(Component.literal("You do not have " + amount + "x " + shop.itemName + ".").withStyle(ChatFormatting.RED));
+            releaseTransactionLock(lockKey);
             return;
         }
         if (!canFit(chest, item, amount)) {
             seller.sendSystemMessage(Component.literal("This buy shop chest is full.").withStyle(ChatFormatting.RED));
+            releaseTransactionLock(lockKey);
             return;
         }
         UUID ownerId = shop.ownerUuid();
@@ -196,18 +205,21 @@ public final class ChestShopService {
         UUID sellerProfileId = PlayerProfileManager.activeProfileId(seller);
         if (ownerId == null || ownerEconomyId == null || sellerProfileId == null) {
             seller.sendSystemMessage(Component.literal("This shop owner is invalid.").withStyle(ChatFormatting.RED));
+            releaseTransactionLock(lockKey);
             return;
         }
         int removed = removeItem(seller.getInventory(), item, amount);
         if (removed < amount) {
             addItem(seller.getInventory(), new ItemStack(item, removed));
             seller.sendSystemMessage(Component.literal("Transaction failed because your inventory changed.").withStyle(ChatFormatting.RED));
+            releaseTransactionLock(lockKey);
             return;
         }
         seller.getInventory().setChanged();
         EconomyManager.transferAsync(ownerEconomyId, shop.ownerName, sellerProfileId, seller.getGameProfile().getName(), shop.price, "chest_shop_buy_order")
-                .thenAccept(result -> seller.server.execute(() -> {
-                    if (!result.success) {
+                .whenComplete((result, throwable) -> seller.server.execute(() -> {
+                    try {
+                    if (throwable != null || result == null || !result.success) {
                         addItem(seller.getInventory(), new ItemStack(item, amount));
                         seller.getInventory().setChanged();
                         seller.sendSystemMessage(Component.literal("This buy shop does not have enough owner funds right now.").withStyle(ChatFormatting.RED));
@@ -217,7 +229,16 @@ public final class ChestShopService {
                     chest.setChanged();
                     seller.sendSystemMessage(Component.literal("Sold " + amount + "x " + shop.itemName + " for " + EconomyManager.format(shop.price) + ".").withStyle(ChatFormatting.GREEN));
                     notifyOwner(level.getServer(), ownerId, "Your buy shop purchased " + amount + "x " + shop.itemName + " for " + EconomyManager.format(shop.price) + ".");
+                    } finally {
+                        releaseTransactionLock(lockKey);
+                    }
                 }));
+    }
+
+    private static void releaseTransactionLock(String lockKey) {
+        synchronized (TRANSACTION_LOCKS) {
+            TRANSACTION_LOCKS.remove(lockKey);
+        }
     }
 
     private static Container getContainer(ServerLevel level, BlockPos pos) {

@@ -49,6 +49,7 @@ public final class MenuNpcCommand {
                                             builder.suggest("gterritories");
                                             builder.suggest("guilds");
                                             builder.suggest("breeding");
+                                            builder.suggest("eggmoves");
                                             return builder.buildFuture();
                                         })
                                         .executes(context -> bind(
@@ -83,6 +84,7 @@ public final class MenuNpcCommand {
                                             builder.suggest("gterritories");
                                             builder.suggest("guilds");
                                             builder.suggest("breeding");
+                                            builder.suggest("eggmoves");
                                             return builder.buildFuture();
                                         })
                                         .executes(context -> unbind(
@@ -106,6 +108,7 @@ public final class MenuNpcCommand {
             case "rankedshop", "rankedtokens", "ranked_token_shop" -> "rankedshop";
             case "breed", "nursery" -> "breeding";
             case "nurse", "healer" -> "nursejoy";
+            case "eggmove", "eggmover", "eggmovetutor", "egg_move", "egg_move_tutor" -> "eggmoves";
             default -> menu.toLowerCase();
         };
     }

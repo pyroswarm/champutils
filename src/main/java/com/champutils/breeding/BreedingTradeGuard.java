@@ -20,28 +20,16 @@ public final class BreedingTradeGuard {
         registered = true;
         try {
             Class<?> eventsClass = Class.forName("com.cobblemon.mod.common.api.events.CobblemonEvents");
-            Object tradeObservable = eventsClass.getField("TRADE_EVENT_PRE").get(null);
             Object releaseObservable = eventsClass.getField("POKEMON_RELEASED_EVENT_PRE").get(null);
-            boolean tradeRegistered = CobblemonEventReflection.subscribe(tradeObservable, BreedingTradeGuard::handleTrade);
             boolean releaseRegistered = CobblemonEventReflection.subscribe(releaseObservable, BreedingTradeGuard::handleRelease);
-            if (!tradeRegistered || !releaseRegistered) {
-                throw new IllegalStateException("No compatible subscribe method found for one or more Egg safety events.");
+            if (!releaseRegistered) {
+                throw new IllegalStateException("No compatible subscribe method found for the Egg release safety event.");
             }
-            System.out.println("[ChampUtils][Breeding] Egg trade/release guards registered.");
+            System.out.println("[ChampUtils][Breeding] Egg release guard registered; direct player trading is allowed.");
         } catch (Throwable error) {
             System.err.println("[ChampUtils][Breeding] Failed to register Egg trade/release guards.");
             error.printStackTrace();
         }
-    }
-
-    private static void handleTrade(Object event) {
-        Pokemon first = pokemon(event, "tradeParticipant1Pokemon", "getTradeParticipant1Pokemon");
-        Pokemon second = pokemon(event, "tradeParticipant2Pokemon", "getTradeParticipant2Pokemon");
-        if (!BreedingEggData.isEgg(first) && !BreedingEggData.isEgg(second)) return;
-        cancel(event);
-        Component message = Component.literal("Pokémon Eggs cannot be directly traded before they hatch. Use the Auction House to sell an Egg safely.").withStyle(ChatFormatting.RED);
-        notifyParticipant(value(event, "tradeParticipant1", "getTradeParticipant1"), message);
-        notifyParticipant(value(event, "tradeParticipant2", "getTradeParticipant2"), message);
     }
 
     private static void handleRelease(Object event) {

@@ -81,6 +81,8 @@ public final class ChampTrainerInteractionListener {
                         );
                         if (!result.started()) {
                             GuildBossManager.releaseBossBattleStart(serverPlayer, npc.getUUID());
+                        } else {
+                            GuildBossManager.commitBossBattleStart(serverPlayer, npc.getUUID());
                         }
                     } catch (Exception battleStartError) {
                         GuildBossManager.releaseBossBattleStart(serverPlayer, npc.getUUID());

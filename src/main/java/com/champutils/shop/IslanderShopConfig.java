@@ -55,6 +55,8 @@ public final class IslanderShopConfig {
         if (CONFIG == null) CONFIG = createDefault();
         if (CONFIG.title == null || CONFIG.title.isBlank()) CONFIG.title = "Islander Resource Shop";
         if (CONFIG.entries == null) CONFIG.entries = new ArrayList<>();
+        ensureApricornSeeds(CONFIG);
+        ensureRequestedResources(CONFIG);
         for (NpcShopConfig.ShopEntry entry : CONFIG.entries) {
             if (entry == null) continue;
             if (entry.type == null || entry.type.isBlank()) entry.type = "item";
@@ -65,6 +67,45 @@ public final class IslanderShopConfig {
             if (entry.price < 0L) entry.price = 0L;
             if (entry.lore == null) entry.lore = new ArrayList<>();
         }
+    }
+
+    private static void ensureApricornSeeds(Root root) {
+        if (root == null || root.entries == null) return;
+        String[] colors = {"black", "blue", "green", "pink", "red", "white", "yellow"};
+        int slot = 37;
+        for (String color : colors) {
+            String id = "cobblemon:" + color + "_apricorn_seed";
+            boolean exists = root.entries.stream().filter(java.util.Objects::nonNull).anyMatch(e -> id.equalsIgnoreCase(e.id));
+            if (!exists) root.entries.add(item(slot, "§a" + Character.toUpperCase(color.charAt(0)) + color.substring(1) + " Apricorn Seeds x4", id, id, 4, 250, "§7Plantable apricorn starter for Islander profiles."));
+            slot++;
+        }
+    }
+
+
+    private static void ensureRequestedResources(Root root) {
+        if (root == null || root.entries == null) return;
+        ensureItem(root, "minecraft:beetroot_seeds", "§cBeetroot Seeds x16", 16, 100, "§7Starts beetroot farming progression.");
+        ensureItem(root, "minecraft:oak_sapling", "§2Oak Saplings x4", 4, 150, "§7Renewable oak wood starter.");
+        ensureItem(root, "minecraft:birch_sapling", "§fBirch Saplings x4", 4, 150, "§7Renewable birch wood starter.");
+        ensureItem(root, "minecraft:spruce_sapling", "§2Spruce Saplings x4", 4, 150, "§7Renewable spruce wood starter.");
+        ensureItem(root, "minecraft:jungle_sapling", "§aJungle Saplings x4", 4, 200, "§7Renewable jungle wood starter.");
+        ensureItem(root, "minecraft:acacia_sapling", "§6Acacia Saplings x4", 4, 175, "§7Renewable acacia wood starter.");
+        ensureItem(root, "minecraft:cherry_sapling", "§dCherry Saplings x4", 4, 225, "§7Renewable cherry wood starter.");
+        ensureItem(root, "cobblemon:saccharine_sapling", "§dSaccharine Saplings x4", 4, 300, "§7Renewable Saccharine wood starter.");
+        ensureItem(root, "cobblemon:tumblestone", "§cTumblestones x16", 16, 200, "§7Poké Ball crafting material.");
+        ensureItem(root, "cobblemon:black_tumblestone", "§8Black Tumblestones x16", 16, 250, "§7Heavy Poké Ball crafting material.");
+        ensureItem(root, "cobblemon:sky_tumblestone", "§bSky Tumblestones x16", 16, 250, "§7Feather Poké Ball crafting material.");
+        ensureItem(root, "cobblemon:blue_mint_seeds", "§9Blue Mint Seeds x4", 4, 500, "§7Renewable mint crop starter.");
+        ensureItem(root, "cobblemon:cyan_mint_seeds", "§bCyan Mint Seeds x4", 4, 500, "§7Renewable mint crop starter.");
+        ensureItem(root, "cobblemon:green_mint_seeds", "§aGreen Mint Seeds x4", 4, 500, "§7Renewable mint crop starter.");
+        ensureItem(root, "cobblemon:pink_mint_seeds", "§dPink Mint Seeds x4", 4, 500, "§7Renewable mint crop starter.");
+        ensureItem(root, "cobblemon:red_mint_seeds", "§cRed Mint Seeds x4", 4, 500, "§7Renewable mint crop starter.");
+        ensureItem(root, "cobblemon:white_mint_seeds", "§fWhite Mint Seeds x4", 4, 500, "§7Renewable mint crop starter.");
+    }
+
+    private static void ensureItem(Root root, String id, String name, int amount, long credits, String lore) {
+        boolean exists = root.entries.stream().filter(java.util.Objects::nonNull).anyMatch(e -> id.equalsIgnoreCase(e.id));
+        if (!exists) root.entries.add(item(-1, name, id, id, amount, credits, lore));
     }
 
     private static Root createDefault() {
@@ -91,6 +132,8 @@ public final class IslanderShopConfig {
         root.entries.add(item(32, "§7Cobweb x8", "minecraft:cobweb", "minecraft:cobweb", 8, 350, "§7String and decorative utility."));
         root.entries.add(item(33, "§6Name Tag", "minecraft:name_tag", "minecraft:name_tag", 1, 750, "§7Useful vanilla utility item."));
         root.entries.add(item(34, "§dOld Amber Fossil", "cobblemon:old_amber_fossil", "cobblemon:old_amber_fossil", 1, 2500, "§7Rare fossil safety valve for Islanders."));
+        ensureApricornSeeds(root);
+        ensureRequestedResources(root);
         return root;
     }
 

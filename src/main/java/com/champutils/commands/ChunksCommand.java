@@ -43,7 +43,7 @@ public final class ChunksCommand {
 
     private static int rank(String chunk) {
         return switch (ProfessionChunkManager.normalizeChunk(chunk)) {
-            case "COBBLESTONE" -> 0; case "COPPER" -> 1; case "IRON" -> 2; case "GOLD" -> 3; case "DIAMOND" -> 4; case "NETHERITE" -> 5; default -> 99;
+            case "COBBLESTONE" -> 0; case "COPPER" -> 1; case "IRON" -> 2; case "GOLD" -> 3; case "EMERALD" -> 4; case "DIAMOND" -> 5; case "NETHERITE" -> 6; default -> 99;
         };
     }
 }

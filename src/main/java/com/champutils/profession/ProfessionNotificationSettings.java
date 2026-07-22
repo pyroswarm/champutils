@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class ProfessionNotificationSettings {
 
@@ -33,6 +34,8 @@ public final class ProfessionNotificationSettings {
             false;
     private static final String STATE_KEY = "player_notification_preferences";
     private static final AtomicLong STACKING_SOUND_NONCE = new AtomicLong();
+    private static final Map<UUID, ActionBarNotice> LAST_PROFESSION_ACTION_BAR = new ConcurrentHashMap<>();
+    private static final long ACTION_BAR_OVERRIDE_WINDOW_MS = 2500L;
 
     private ProfessionNotificationSettings() {
     }
@@ -114,6 +117,31 @@ public final class ProfessionNotificationSettings {
         setProfessionPopupsEnabled(player, enabled);
         return enabled;
     }
+
+
+    public static boolean areProfessionOverflowMessagesEnabled(ServerPlayer player) {
+        return getSettings(player).professionOverflowMessages;
+    }
+
+    public static boolean toggleProfessionOverflowMessages(ServerPlayer player) {
+        PlayerSettings settings = getOrCreateSettings(player);
+        if (settings == null) return true;
+        settings.professionOverflowMessages = !settings.professionOverflowMessages;
+        persist(player, settings);
+        return settings.professionOverflowMessages;
+    }
+
+    /** Called by the ServerPlayer mixin before a profession action-bar message is sent. */
+    public static void handleProfessionActionBar(ServerPlayer player, Component incoming) {
+        if (player == null || incoming == null || !areProfessionOverflowMessagesEnabled(player)) return;
+        long now = System.currentTimeMillis();
+        ActionBarNotice previous = LAST_PROFESSION_ACTION_BAR.put(player.getUUID(), new ActionBarNotice(incoming.copy(), now));
+        if (previous != null && now - previous.sentAt <= ACTION_BAR_OVERRIDE_WINDOW_MS) {
+            player.sendSystemMessage(previous.message);
+        }
+    }
+
+    private record ActionBarNotice(Component message, long sentAt) {}
 
     public static boolean areSoundEffectsEnabled(ServerPlayer player) {
         return getSettings(player).soundEffects;
@@ -319,6 +347,7 @@ public final class ProfessionNotificationSettings {
         String uuid;
         String name;
         Boolean professionPopups = true;
+        Boolean professionOverflowMessages = true;
         Boolean soundEffects = true;
         Boolean broadcastMessages = true;
         Boolean queueNotifications = true;
@@ -328,6 +357,7 @@ public final class ProfessionNotificationSettings {
 
         void normalizeDefaults() {
             if (professionPopups == null) professionPopups = true;
+            if (professionOverflowMessages == null) professionOverflowMessages = true;
             if (soundEffects == null) soundEffects = true;
             if (broadcastMessages == null) broadcastMessages = true;
             if (queueNotifications == null) queueNotifications = true;

@@ -15,10 +15,44 @@ import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public final class ExpeditionConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File FILE = new File("config/champutils/expeditions.json");
+    private static final int REWARD_SCHEMA_VERSION = 2;
+    private static final Set<String> HELD_ITEM_IDS = Set.of(
+            "cobblemon:ability_shield", "cobblemon:absorb_bulb", "cobblemon:air_balloon", "cobblemon:assault_vest",
+            "cobblemon:big_root", "cobblemon:binding_band", "cobblemon:black_belt", "cobblemon:black_glasses",
+            "cobblemon:black_sludge", "cobblemon:blunder_policy", "cobblemon:bright_powder", "cobblemon:cell_battery",
+            "cobblemon:charcoal_stick", "cobblemon:choice_band", "cobblemon:choice_scarf", "cobblemon:choice_specs",
+            "cobblemon:cleanse_tag", "cobblemon:covert_cloak", "cobblemon:damp_rock", "cobblemon:deep_sea_scale",
+            "cobblemon:deep_sea_tooth", "cobblemon:destiny_knot", "cobblemon:dragon_fang", "cobblemon:eject_button",
+            "cobblemon:eject_pack", "cobblemon:everstone", "cobblemon:eviolite", "cobblemon:exp_share",
+            "cobblemon:expert_belt", "cobblemon:fairy_feather", "cobblemon:flame_orb", "cobblemon:float_stone",
+            "cobblemon:focus_band", "cobblemon:focus_sash", "cobblemon:hard_stone", "cobblemon:heat_rock",
+            "cobblemon:heavy_duty_boots", "cobblemon:icy_rock", "cobblemon:iron_ball", "cobblemon:kings_rock",
+            "cobblemon:leftovers", "cobblemon:life_orb", "cobblemon:light_ball", "cobblemon:light_clay",
+            "cobblemon:loaded_dice", "cobblemon:lucky_egg", "cobblemon:magnet", "cobblemon:medicinal_leek",
+            "cobblemon:mental_herb", "cobblemon:metal_coat", "cobblemon:metal_powder", "cobblemon:metronome",
+            "cobblemon:miracle_seed", "cobblemon:mirror_herb", "cobblemon:muscle_band", "cobblemon:mystic_water",
+            "cobblemon:never_melt_ice", "cobblemon:poison_barb", "cobblemon:power_anklet", "cobblemon:power_band",
+            "cobblemon:power_belt", "cobblemon:power_bracer", "cobblemon:power_herb", "cobblemon:power_lens",
+            "cobblemon:power_weight", "cobblemon:protective_pads", "cobblemon:punching_glove", "cobblemon:quick_claw",
+            "cobblemon:quick_powder", "cobblemon:razor_claw", "cobblemon:razor_fang", "cobblemon:red_card",
+            "cobblemon:ring_target", "cobblemon:rocky_helmet", "cobblemon:room_service", "cobblemon:safety_goggles",
+            "cobblemon:scope_lens", "cobblemon:sharp_beak", "cobblemon:shed_shell", "cobblemon:shell_bell",
+            "cobblemon:silk_scarf", "cobblemon:silver_powder", "cobblemon:smoke_ball", "cobblemon:smooth_rock",
+            "cobblemon:soft_sand", "cobblemon:spell_tag", "cobblemon:sticky_barb", "cobblemon:terrain_extender",
+            "cobblemon:throat_spray", "cobblemon:toxic_orb", "cobblemon:twisted_spoon", "cobblemon:utility_umbrella",
+            "cobblemon:weakness_policy", "cobblemon:white_herb", "cobblemon:wide_lens", "cobblemon:wise_glasses",
+            "cobblemon:zoom_lens", "cobblemon:electric_seed", "cobblemon:grassy_seed", "cobblemon:misty_seed",
+            "cobblemon:psychic_seed", "cobblemon:bug_gem", "cobblemon:dark_gem", "cobblemon:dragon_gem",
+            "cobblemon:electric_gem", "cobblemon:fairy_gem", "cobblemon:fighting_gem", "cobblemon:fire_gem",
+            "cobblemon:flying_gem", "cobblemon:ghost_gem", "cobblemon:grass_gem", "cobblemon:ground_gem",
+            "cobblemon:ice_gem", "cobblemon:normal_gem", "cobblemon:poison_gem", "cobblemon:psychic_gem",
+            "cobblemon:rock_gem", "cobblemon:steel_gem", "cobblemon:water_gem", "minecraft:bone", "minecraft:snowball"
+    );
     private static Config DATA = defaults();
 
     private ExpeditionConfig() {}
@@ -37,9 +71,11 @@ public final class ExpeditionConfig {
                 if (DATA.low == null) DATA.low = defaults().low;
                 if (DATA.mid == null) DATA.mid = defaults().mid;
                 if (DATA.high == null) DATA.high = defaults().high;
-                sanitizeTier(DATA.low);
-                sanitizeTier(DATA.mid);
-                sanitizeTier(DATA.high);
+                sanitizeTier(DATA.low, "low");
+                sanitizeTier(DATA.mid, "mid");
+                sanitizeTier(DATA.high, "high");
+                DATA.rewardSchemaVersion = REWARD_SCHEMA_VERSION;
+                save();
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -89,11 +125,22 @@ public final class ExpeditionConfig {
         }
 
         if ("held_item".equals(normalized)) {
-            add(out, "cobblemon:wise_glasses", 1);
-            if (level >= 30) add(out, "cobblemon:muscle_band", 1);
-            if (level >= 55) add(out, "cobblemon:focus_sash", 1);
-            if (level >= 75) add(out, "cobblemon:leftovers", 1);
-            if (level >= 90) add(out, "cobblemon:life_orb", 1);
+            List<String> configured = tier(pokemonLevel).heldItemPool;
+            if (configured != null && !configured.isEmpty()) {
+                String selected = configured.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(configured.size()));
+                if (isValidHeldItemId(selected)) add(out, selected, 1);
+                if (!out.isEmpty()) return out;
+            }
+            String[] pool = level >= 90
+                    ? new String[]{"cobblemon:lucky_egg", "cobblemon:exp_share", "cobblemon:leftovers", "cobblemon:life_orb", "cobblemon:choice_scarf"}
+                    : level >= 75
+                    ? new String[]{"cobblemon:leftovers", "cobblemon:life_orb", "cobblemon:choice_band", "cobblemon:choice_specs", "cobblemon:heavy_duty_boots"}
+                    : level >= 55
+                    ? new String[]{"cobblemon:focus_sash", "cobblemon:assault_vest", "cobblemon:rocky_helmet", "cobblemon:expert_belt", "cobblemon:eviolite"}
+                    : level >= 30
+                    ? new String[]{"cobblemon:muscle_band", "cobblemon:wise_glasses", "cobblemon:scope_lens", "cobblemon:shell_bell", "cobblemon:quick_claw"}
+                    : new String[]{"cobblemon:black_glasses", "cobblemon:charcoal_stick", "cobblemon:magnet", "cobblemon:miracle_seed", "cobblemon:mystic_water", "cobblemon:soft_sand"};
+            add(out, pool[java.util.concurrent.ThreadLocalRandom.current().nextInt(pool.length)], 1);
             return out;
         }
 
@@ -137,6 +184,15 @@ public final class ExpeditionConfig {
         return Math.max(0L, Math.round(base * multiplier));
     }
 
+
+
+    public static String randomTmRank(int pokemonLevel) {
+        Tier tier = tier(pokemonLevel);
+        if (tier.tmRankPool != null && !tier.tmRankPool.isEmpty()) {
+            return tier.tmRankPool.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(tier.tmRankPool.size())).trim().toUpperCase(Locale.ROOT);
+        }
+        return pokemonLevel >= 90 ? "S" : pokemonLevel >= 75 ? "A" : pokemonLevel >= 60 ? "B" : pokemonLevel >= 45 ? "C" : pokemonLevel >= 30 ? "D" : pokemonLevel >= 15 ? "E" : "F";
+    }
 
     public static int tmRewardCount(int pokemonLevel) {
         if (pokemonLevel >= 80) return 3;
@@ -195,9 +251,11 @@ public final class ExpeditionConfig {
     public static String normalizeType(String type) {
         if (type == null || type.isBlank()) return "general";
         String normalized = type.trim().toLowerCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+        while (normalized.endsWith("_expedition")) normalized = normalized.substring(0, normalized.length() - "_expedition".length());
+        if (normalized.endsWith("expedition")) normalized = normalized.substring(0, normalized.length() - "expedition".length());
         return switch (normalized) {
-            case "ball", "balls", "pokeballs", "poke_ball", "poke_balls" -> "pokeball";
-            case "held", "helditem", "helditems", "held_items" -> "held_item";
+            case "ball", "balls", "pokeball", "pokeballs", "poke_ball", "poke_balls" -> "pokeball";
+            case "held", "held_item", "helditem", "helditems", "held_items" -> "held_item";
             case "candy", "candies", "xp", "xp_candy" -> "candy";
             case "tm", "tms" -> "tm";
             case "pokemon", "mon" -> "pokemon";
@@ -227,10 +285,56 @@ public final class ExpeditionConfig {
         return out;
     }
 
-    private static void sanitizeTier(Tier tier) {
+    private static void sanitizeTier(Tier tier, String tierName) {
         if (tier == null) return;
         if (tier.items == null) tier.items = new ArrayList<>();
         if (tier.chunks == null) tier.chunks = new ArrayList<>();
+        if (tier.heldItemPool == null) tier.heldItemPool = new ArrayList<>();
+        if (tier.tmRankPool == null) tier.tmRankPool = new ArrayList<>();
+
+        // Never allow a general reward (potions, candy, etc.) to leak into a
+        // Held Item expedition because of an old or manually edited pool.
+        tier.heldItemPool.removeIf(id -> !isValidHeldItemId(id));
+        if (tier.heldItemPool.isEmpty()) tier.heldItemPool.addAll(defaultHeldItemPool(tierName));
+
+        tier.tmRankPool.replaceAll(rank -> com.champutils.rarity.RarityScale.normalize(rank));
+        tier.tmRankPool.removeIf(rank -> rank == null || rank.isBlank());
+        if (tier.tmRankPool.isEmpty()) tier.tmRankPool.addAll(defaultTmRanks(tierName));
+    }
+
+    private static boolean isValidHeldItemId(String id) {
+        if (id == null || !HELD_ITEM_IDS.contains(id.trim().toLowerCase(Locale.ROOT))) return false;
+        try {
+            Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(id));
+            return item != null && item != Items.AIR;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static List<String> defaultHeldItemPool(String tierName) {
+        return switch (tierName == null ? "low" : tierName.toLowerCase(Locale.ROOT)) {
+            case "high" -> new ArrayList<>(List.of(
+                    "cobblemon:lucky_egg", "cobblemon:exp_share", "cobblemon:leftovers", "cobblemon:life_orb",
+                    "cobblemon:choice_scarf", "cobblemon:choice_band", "cobblemon:choice_specs", "cobblemon:heavy_duty_boots"
+            ));
+            case "mid" -> new ArrayList<>(List.of(
+                    "cobblemon:focus_sash", "cobblemon:assault_vest", "cobblemon:rocky_helmet", "cobblemon:expert_belt",
+                    "cobblemon:eviolite", "cobblemon:muscle_band", "cobblemon:wise_glasses", "cobblemon:scope_lens"
+            ));
+            default -> new ArrayList<>(List.of(
+                    "cobblemon:black_glasses", "cobblemon:charcoal_stick", "cobblemon:magnet", "cobblemon:miracle_seed",
+                    "cobblemon:mystic_water", "cobblemon:soft_sand", "cobblemon:shell_bell", "cobblemon:quick_claw"
+            ));
+        };
+    }
+
+    private static List<String> defaultTmRanks(String tierName) {
+        return switch (tierName == null ? "low" : tierName.toLowerCase(Locale.ROOT)) {
+            case "high" -> new ArrayList<>(List.of("B", "A", "S"));
+            case "mid" -> new ArrayList<>(List.of("D", "C", "B"));
+            default -> new ArrayList<>(List.of("F", "E", "D"));
+        };
     }
 
     private static Config defaults() {
@@ -238,18 +342,26 @@ public final class ExpeditionConfig {
         config.low = new Tier(2, EconomyManager.wholeCreditsToCents(50L));
         config.low.items.add(new ItemReward("cobblemon:potion", 4));
         config.low.items.add(new ItemReward("cobblemon:exp_candy_xs", 2));
+        config.low.heldItemPool.addAll(defaultHeldItemPool("low"));
+        config.low.tmRankPool.addAll(defaultTmRanks("low"));
 
         config.mid = new Tier(4, EconomyManager.wholeCreditsToCents(100L));
         config.mid.items.add(new ItemReward("cobblemon:super_potion", 4));
         config.mid.items.add(new ItemReward("cobblemon:exp_candy_s", 2));
+        config.mid.heldItemPool.addAll(defaultHeldItemPool("mid"));
+        config.mid.tmRankPool.addAll(defaultTmRanks("mid"));
 
         config.high = new Tier(8, EconomyManager.wholeCreditsToCents(250L));
         config.high.items.add(new ItemReward("cobblemon:hyper_potion", 4));
         config.high.items.add(new ItemReward("cobblemon:exp_candy_m", 2));
+        config.high.heldItemPool.addAll(defaultHeldItemPool("high"));
+        config.high.tmRankPool.addAll(defaultTmRanks("high"));
+        config.rewardSchemaVersion = REWARD_SCHEMA_VERSION;
         return config;
     }
 
     public static final class Config {
+        public int rewardSchemaVersion = REWARD_SCHEMA_VERSION;
         public Tier low;
         public Tier mid;
         public Tier high;
@@ -260,6 +372,8 @@ public final class ExpeditionConfig {
         public long credits;
         public List<ItemReward> items = new ArrayList<>();
         public List<ChunkReward> chunks = new ArrayList<>();
+        public List<String> heldItemPool = new ArrayList<>();
+        public List<String> tmRankPool = new ArrayList<>();
         public Tier() {}
         public Tier(int hours, long credits) { this.hours = hours; this.credits = credits; }
     }

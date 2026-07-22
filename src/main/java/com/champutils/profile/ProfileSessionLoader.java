@@ -15,6 +15,7 @@ import com.champutils.megaboss.MegaBossBattleListener;
 import com.champutils.notifications.NotificationManager;
 import com.champutils.party.PartyManager;
 import com.champutils.profession.ProfessionDataManager;
+import com.champutils.profession.ProfessionManager;
 import com.champutils.quest.QuestManager;
 import com.champutils.shop.FirstJoinKitManager;
 import com.champutils.survival.HomeCommand;
@@ -33,7 +34,7 @@ import java.util.UUID;
 public final class ProfileSessionLoader {
     private ProfileSessionLoader() {}
 
-    public record BackgroundSnapshot(UUID playerUuid, UUID profileId, int storedRp) {}
+    public record BackgroundSnapshot(UUID playerUuid, UUID profileId, int storedRp, ProfessionDataManager.ProfessionData professions) {}
 
     private static long time(String operation, Runnable runnable) {
         long start = System.currentTimeMillis();
@@ -52,7 +53,7 @@ public final class ProfileSessionLoader {
         if (player == null) return;
         loadCritical(player);
         loadBackground(player.getUUID(), PlayerProfileManager.activeProfileId(player), player.getName().getString());
-        applyBackground(player, new BackgroundSnapshot(player.getUUID(), PlayerProfileManager.activeProfileId(player), PlayerDataManager.getRp(player.getUUID(), player.getName().getString())));
+        applyBackground(player, new BackgroundSnapshot(player.getUUID(), PlayerProfileManager.activeProfileId(player), PlayerDataManager.getRp(player.getUUID(), player.getName().getString()), ProfessionDataManager.load(PlayerProfileManager.activeProfileId(player), player.getName().getString())));
         loadDelayedNonCritical(player);
     }
 
@@ -71,7 +72,7 @@ public final class ProfileSessionLoader {
      */
     public static BackgroundSnapshot loadBackground(UUID playerUuid, UUID profileId, String playerName) {
         long all = System.currentTimeMillis();
-        if (playerUuid == null) return new BackgroundSnapshot(null, profileId, 300);
+        if (playerUuid == null) return new BackgroundSnapshot(null, profileId, 300, null);
         String safeName = playerName == null || playerName.isBlank() ? playerUuid.toString() : playerName;
 
         time("ProfileSessionLoader.loadBackground.PlayerDataManager.ensurePlayer", () -> PlayerDataManager.ensurePlayer(playerUuid, safeName));
@@ -92,12 +93,15 @@ public final class ProfileSessionLoader {
         time("ProfileSessionLoader.loadBackground.LevelCapCommand.preload", () -> com.champutils.commands.LevelCapCommand.preload(playerUuid));
         time("ProfileSessionLoader.loadBackground.WildSpawnCapCommand.preload", () -> com.champutils.commands.WildSpawnCapCommand.preload(profileId));
 
+        final ProfessionDataManager.ProfessionData[] professions = new ProfessionDataManager.ProfessionData[1];
+        time("ProfileSessionLoader.loadBackground.ProfessionDataManager.loadShared", () -> professions[0] = ProfessionDataManager.load(profileId, safeName));
+
         final int[] rp = new int[] { 300 };
         time("ProfileSessionLoader.loadBackground.PlayerDataManager.getRp", () -> rp[0] = PlayerDataManager.getRp(playerUuid, safeName));
         time("ProfileSessionLoader.loadBackground.EconomyManager.ensureProfile", () -> EconomyManager.ensureProfile(profileId, safeName));
 
         ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] ProfileSessionLoader.loadBackground.total took " + (System.currentTimeMillis() - all) + "ms for profile=" + profileId);
-        return new BackgroundSnapshot(playerUuid, profileId, rp[0]);
+        return new BackgroundSnapshot(playerUuid, profileId, rp[0], professions[0]);
     }
 
     /**
@@ -110,6 +114,7 @@ public final class ProfileSessionLoader {
             ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] ProfileSessionLoader.applyBackground skipped stale snapshot active=" + active + " snapshot=" + (snapshot.profileId() == null ? "null" : snapshot.profileId()));
             return;
         }
+        time("ProfileSessionLoader.applyBackground.ProfessionManager.installSharedSnapshot", () -> ProfessionManager.installSharedSnapshot(snapshot.profileId(), snapshot.playerUuid(), snapshot.professions()));
         time("ProfileSessionLoader.applyBackground.ProfileManager.setElo", () -> ProfileManager.setElo(player, snapshot.storedRp()));
     }
 

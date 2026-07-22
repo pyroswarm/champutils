@@ -103,7 +103,7 @@ public final class ExpeditionManager {
                 save.endsAt = Math.max(now, save.endsAt - delta);
             }
             save.lastOnlineProgressAt = now;
-            save(player, save);
+            saveAsync(player, save);
             if (save.active && now >= save.endsAt) notifyIfReady(player);
         }
     }
@@ -221,7 +221,7 @@ public final class ExpeditionManager {
         Save save = loadSave(player);
         if (save.active && System.currentTimeMillis() >= save.endsAt && !save.readyNotified) {
             save.readyNotified = true;
-            save(player, save);
+            saveAsync(player, save);
             player.sendSystemMessage(Component.literal("Your expedition is done! Use /expeditions claim to get your Pokémon and rewards.").withStyle(ChatFormatting.GOLD));
         }
     }
@@ -252,6 +252,57 @@ public final class ExpeditionManager {
     private static long remainingMillis(Save save) {
         if (save == null || !save.active) return 0L;
         return Math.max(0L, save.endsAt - System.currentTimeMillis());
+    }
+
+
+    public static void cancel(ServerPlayer player) {
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        Object lock = PROFILE_LOCKS.computeIfAbsent(profileId, ignored -> new Object());
+        synchronized (lock) {
+            Save save = loadSave(player);
+            if (!save.active) {
+                player.sendSystemMessage(Component.literal("No active expedition.").withStyle(ChatFormatting.RED));
+                return;
+            }
+            if (save.claimInProgress) {
+                player.sendSystemMessage(Component.literal("That expedition is currently being processed.").withStyle(ChatFormatting.YELLOW));
+                return;
+            }
+            player.closeContainer();
+            try {
+                if (!save.originalReturned) {
+                    JsonObject payload = JsonParser.parseString(save.payload).getAsJsonObject();
+                    UUID originalUuid = AuctionPokemonSerializer.uuidFromPayload(payload);
+                    if (originalUuid == null || !AuctionPokemonSerializer.hasPokemonInPartyOrPc(player, originalUuid)) {
+                        Pokemon pokemon = AuctionPokemonSerializer.fromPayload(player, payload);
+                        AuctionPokemonSerializer.DeliveryResult delivered = AuctionPokemonSerializer.deliverToPartyOrPc(player, pokemon);
+                        if (delivered == AuctionPokemonSerializer.DeliveryResult.FAILED) {
+                            player.sendSystemMessage(Component.literal("Could not return the expedition Pokémon. Make party or PC space and try again.").withStyle(ChatFormatting.RED));
+                            return;
+                        }
+                        save.originalDelivery = delivered.name();
+                    } else {
+                        save.originalDelivery = "ALREADY_IN_STORAGE";
+                    }
+                    save.originalReturned = true;
+                }
+                save.active = false;
+                save.claimCompleted = true;
+                save.claimInProgress = false;
+                save.claimStartedAt = 0L;
+                // Cancellation intentionally grants no items, credits, chunks, or discovered Pokémon.
+                save.baseRewardsGranted = true;
+                save.chunkRewardsGranted = true;
+                save.expeditionPokemonRewardGenerated = true;
+                save.expeditionPokemonRewardDelivered = true;
+                save.expeditionPokemonRewardPayload = "";
+                saveOrThrow(player, save);
+                player.sendSystemMessage(Component.literal("Expedition cancelled. Your Pokémon was returned and no rewards were granted.").withStyle(ChatFormatting.YELLOW));
+            } catch (Exception error) {
+                error.printStackTrace();
+                player.sendSystemMessage(Component.literal("Could not cancel that expedition safely. Nothing was lost; try again.").withStyle(ChatFormatting.RED));
+            }
+        }
     }
 
     public static void claim(ServerPlayer player) {
@@ -294,8 +345,15 @@ public final class ExpeditionManager {
 
             try {
                 int battlingLevel = ProfessionManager.getBenefitLevel(player, ProfessionType.BATTLING);
-                List<ItemStack> rewards = ExpeditionConfig.itemStacks(save.level, battlingLevel, save.expeditionType);
-                if ("tm".equals(ExpeditionConfig.normalizeType(save.expeditionType))) {
+                String normalizedExpeditionType = ExpeditionConfig.normalizeType(save.expeditionType);
+                // Persist the canonical type for legacy saves so every subsequent retry
+                // uses the same strictly separated reward category.
+                if (!normalizedExpeditionType.equals(save.expeditionType)) {
+                    save.expeditionType = normalizedExpeditionType;
+                    saveOrThrow(player, save);
+                }
+                List<ItemStack> rewards = ExpeditionConfig.itemStacks(save.level, battlingLevel, normalizedExpeditionType);
+                if ("tm".equals(normalizedExpeditionType)) {
                     rewards = new ArrayList<>(rewards);
                     rewards.addAll(createTmRewards(save.level));
                 }
@@ -349,7 +407,7 @@ public final class ExpeditionManager {
                     for (ItemStack stack : rewards) player.getInventory().add(stack.copy());
                 }
 
-                if ("pokemon".equals(ExpeditionConfig.normalizeType(save.expeditionType))) {
+                if ("pokemon".equals(normalizedExpeditionType)) {
                     if (!save.expeditionPokemonRewardGenerated) {
                         PokemonRewardResult result = createPokemonReward(battlingLevel, save.level, save.expeditionType);
                         Pokemon found = result == null ? null : result.pokemon;
@@ -449,7 +507,8 @@ public final class ExpeditionManager {
         List<ItemStack> rewards = new ArrayList<>();
         int count = ExpeditionConfig.tmRewardCount(pokemonLevel);
         for (int i = 0; i < count; i++) {
-            ItemStack tm = TMManager.createRandomTMStack("F", 1);
+            String rank = ExpeditionConfig.randomTmRank(pokemonLevel);
+            ItemStack tm = TMManager.createRandomTMStack(rank, 1);
             if (tm != null && !tm.isEmpty()) rewards.add(tm);
         }
         return rewards;
@@ -495,6 +554,17 @@ public final class ExpeditionManager {
             }
         }
         return new Save();
+    }
+
+
+    private static void saveAsync(ServerPlayer player, Save save) {
+        UUID profileId = player == null ? null : PlayerProfileManager.activeProfileId(player);
+        if (profileId == null || save == null) return;
+        CACHE.put(profileId, save);
+        SharedJsonStateRepository.saveProfileAsync(profileId, STATE_KEY, save).exceptionally(error -> {
+            System.err.println("[ChampUtils] Async expedition save failed for " + profileId + ": " + error.getMessage());
+            return null;
+        });
     }
 
     private static void save(ServerPlayer player, Save save) {

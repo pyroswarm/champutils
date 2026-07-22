@@ -8,6 +8,7 @@ import com.champutils.economy.EconomyManager;
 import com.champutils.network.NetworkEventManager;
 import com.champutils.profession.ProfessionNotificationSettings;
 import com.champutils.profile.PlayerProfileManager;
+import com.champutils.profile.ProfileGameMode;
 import com.champutils.wiki.PokemonWikiIndex;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.google.gson.JsonObject;
@@ -15,6 +16,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Locale;
@@ -24,19 +26,35 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class PlayerContractService {
     private static final Map<UUID, PendingPokemonContract> PENDING_POKEMON_CONTRACTS = new ConcurrentHashMap<>();
+    private static final Map<UUID, PendingItemContract> PENDING_ITEM_CONTRACTS = new ConcurrentHashMap<>();
     private static final java.util.Set<UUID> CONTRACT_MUTATIONS_IN_FLIGHT = ConcurrentHashMap.newKeySet();
 
     private PlayerContractService() {}
 
+    private static boolean contractsBlocked(ServerPlayer player) {
+        ProfileGameMode mode = PlayerProfileManager.gameMode(player);
+        if (mode == ProfileGameMode.ISLANDER || mode == ProfileGameMode.NUZLOCKE || mode == ProfileGameMode.IRONMAN) {
+            player.sendSystemMessage(Component.literal("Player-created contracts are unavailable on " + mode.displayName() + " profiles.").withStyle(ChatFormatting.RED));
+            return true;
+        }
+        return false;
+    }
+
+
     public static boolean consumeChatInput(ServerPlayer player, String rawMessage) {
         if (player == null) return false;
+        PendingItemContract pendingItem = PENDING_ITEM_CONTRACTS.get(player.getUUID());
         PendingPokemonContract pending = PENDING_POKEMON_CONTRACTS.get(player.getUUID());
-        if (pending == null) return false;
+        if (pendingItem == null && pending == null) return false;
         String input = rawMessage == null ? "" : rawMessage.trim();
         if (input.equalsIgnoreCase("cancel")) {
+            PENDING_ITEM_CONTRACTS.remove(player.getUUID());
             PENDING_POKEMON_CONTRACTS.remove(player.getUUID());
-            player.sendSystemMessage(Component.literal("Pokémon contract creation cancelled.").withStyle(ChatFormatting.YELLOW));
+            player.sendSystemMessage(Component.literal("Contract creation cancelled.").withStyle(ChatFormatting.YELLOW));
             return true;
+        }
+        if (pendingItem != null) {
+            return consumeItemContractInput(player, pendingItem, input);
         }
         if (input.isBlank()) {
             player.sendSystemMessage(Component.literal("Type a value, or type cancel.").withStyle(ChatFormatting.RED));
@@ -77,8 +95,61 @@ public final class PlayerContractService {
         return true;
     }
 
+
+    private static boolean consumeItemContractInput(ServerPlayer player, PendingItemContract pending, String input) {
+        if (input.isBlank()) {
+            player.sendSystemMessage(Component.literal("Type a value, or type cancel.").withStyle(ChatFormatting.RED));
+            return true;
+        }
+        if (pending.step == ItemPendingStep.ITEM_NAME) {
+            ResolvedItem resolved = resolveItemByLiteralName(input);
+            if (resolved == null) {
+                player.sendSystemMessage(Component.literal("I could not find that item. Type its normal in-game name, like Poke Ball, or type cancel.").withStyle(ChatFormatting.RED));
+                return true;
+            }
+            pending.itemId = BuiltInRegistries.ITEM.getKey(resolved.item()).toString();
+            pending.displayName = resolved.displayName();
+            pending.step = ItemPendingStep.QUANTITY;
+            player.sendSystemMessage(Component.literal("Type how many " + pending.displayName + " you want to buy. Example: 64. Type cancel to stop.").withStyle(ChatFormatting.AQUA));
+            return true;
+        }
+        if (pending.step == ItemPendingStep.QUANTITY) {
+            int quantity;
+            try { quantity = Integer.parseInt(input.replace(",", "").trim()); }
+            catch (Exception ignored) { quantity = 0; }
+            if (quantity <= 0 || quantity > 100000) {
+                player.sendSystemMessage(Component.literal("Type a whole quantity from 1 to 100,000. Type cancel to stop.").withStyle(ChatFormatting.RED));
+                return true;
+            }
+            pending.quantity = quantity;
+            pending.step = ItemPendingStep.REWARD;
+            player.sendSystemMessage(Component.literal("Type how many Credits you will pay for all " + quantity + " items. Example: 1000. Type cancel to stop.").withStyle(ChatFormatting.GOLD));
+            return true;
+        }
+        long rewardCents = parseRewardCents(input);
+        if (rewardCents <= 0L) {
+            player.sendSystemMessage(Component.literal("Type the total Credits payment as a number, like 500 or 1250.50. Type cancel to stop.").withStyle(ChatFormatting.RED));
+            return true;
+        }
+        PENDING_ITEM_CONTRACTS.remove(player.getUUID());
+        JsonObject criteria = new JsonObject();
+        criteria.addProperty("item_id", pending.itemId);
+        criteria.addProperty("count", pending.quantity);
+        createContract(player, "ITEM", "Deliver " + pending.quantity + " " + pending.displayName, rewardCents, criteria);
+        return true;
+    }
+
+    public static void beginItemContract(ServerPlayer player) {
+        if (player == null || contractsBlocked(player)) return;
+        PENDING_POKEMON_CONTRACTS.remove(player.getUUID());
+        PENDING_ITEM_CONTRACTS.put(player.getUUID(), new PendingItemContract());
+        player.closeContainer();
+        player.sendSystemMessage(Component.literal("Type the normal in-game item name. Example: Poke Ball. Type cancel to stop.").withStyle(ChatFormatting.AQUA));
+    }
+
     public static void beginPokemonContract(ServerPlayer player) {
-        if (player == null) return;
+        if (player == null || contractsBlocked(player)) return;
+        PENDING_ITEM_CONTRACTS.remove(player.getUUID());
         PENDING_POKEMON_CONTRACTS.put(player.getUUID(), new PendingPokemonContract());
         player.closeContainer();
         player.sendSystemMessage(Component.literal("Type the Pokémon species for the contract in chat. Example: Gible. Type cancel to stop.").withStyle(ChatFormatting.AQUA));
@@ -87,6 +158,7 @@ public final class PlayerContractService {
     public static void cancelPending(ServerPlayer player) {
         if (player == null) return;
         PENDING_POKEMON_CONTRACTS.remove(player.getUUID());
+        PENDING_ITEM_CONTRACTS.remove(player.getUUID());
     }
 
     public static void selectPokemonGender(ServerPlayer player, String gender) {
@@ -335,41 +407,43 @@ public final class PlayerContractService {
 
     public static void completeItemContract(ServerPlayer player, UUID contractId) {
         if (player == null || contractId == null) return;
-        ItemStack held = player.getMainHandItem();
-        if (held == null || held.isEmpty()) {
-            player.sendSystemMessage(Component.literal("Hold the requested item stack, then click the contract again.").withStyle(ChatFormatting.RED));
+        if (!CONTRACT_MUTATIONS_IN_FLIGHT.add(contractId)) {
+            player.sendSystemMessage(Component.literal("That contract is already being processed.").withStyle(ChatFormatting.YELLOW));
             return;
         }
 
         DatabaseManager.supplyAsync("load player item contract", connection -> PlayerContractRepository.fetchActiveContract(contractId))
                 .whenComplete((contract, error) -> player.server.execute(() -> {
                     if (error != null || contract == null || !"ITEM".equalsIgnoreCase(contract.type)) {
+                        CONTRACT_MUTATIONS_IN_FLIGHT.remove(contractId);
                         player.sendSystemMessage(Component.literal("That item contract is no longer available.").withStyle(ChatFormatting.RED));
                         return;
                     }
-                    if (!matchesItem(contract.criteria, held)) {
-                        player.sendSystemMessage(Component.literal("That item does not match this contract.").withStyle(ChatFormatting.RED));
+                    String requiredId = string(contract.criteria, "item_id", "itemId", "item");
+                    int required = requiredCount(contract.criteria, 1);
+                    int available = countMatchingItems(player, requiredId);
+                    if (available < required) {
+                        CONTRACT_MUTATIONS_IN_FLIGHT.remove(contractId);
+                        player.sendSystemMessage(Component.literal("You need " + required + " matching items in your inventory. You currently have " + available + ".").withStyle(ChatFormatting.RED));
                         return;
                     }
-
-                    int required = requiredCount(contract.criteria, held.getCount());
-                    if (held.getCount() < required) {
-                        player.sendSystemMessage(Component.literal("You need " + required + " items for this contract.").withStyle(ChatFormatting.RED));
+                    ItemStack payment = removeMatchingItems(player, requiredId, required);
+                    if (payment.isEmpty() || payment.getCount() != required) {
+                        CONTRACT_MUTATIONS_IN_FLIGHT.remove(contractId);
+                        player.sendSystemMessage(Component.literal("Could not safely collect the requested items. Nothing was taken.").withStyle(ChatFormatting.RED));
                         return;
                     }
-
-                    ItemStack payment = held.copy();
-                    payment.setCount(required);
                     JsonObject payload;
                     try {
                         payload = AuctionItemSerializer.toPayload(player, payment);
                     } catch (Exception e) {
-                        player.sendSystemMessage(Component.literal("Could not store that item safely. Nothing was removed.").withStyle(ChatFormatting.RED));
+                        giveItemAmount(player, payment);
+                        CONTRACT_MUTATIONS_IN_FLIGHT.remove(contractId);
+                        player.sendSystemMessage(Component.literal("Could not store those items safely. They were returned.").withStyle(ChatFormatting.RED));
                         e.printStackTrace();
                         return;
                     }
 
-                    held.shrink(required);
                     DatabaseManager.supplyAsync("complete player item contract", connection -> PlayerContractRepository.completeContract(
                             contract.id,
                             PlayerProfileManager.activeProfileId(player),
@@ -377,11 +451,13 @@ public final class PlayerContractService {
                             payload
                     )).whenComplete((completed, completeError) -> player.server.execute(() -> {
                         if (completeError != null || !Boolean.TRUE.equals(completed)) {
-                            player.getInventory().add(payment.copy());
-                            player.sendSystemMessage(Component.literal("Could not complete that contract. Your item was returned.").withStyle(ChatFormatting.RED));
+                            CONTRACT_MUTATIONS_IN_FLIGHT.remove(contractId);
+                            giveItemAmount(player, payment);
+                            player.sendSystemMessage(Component.literal("Could not complete that contract. Your items were returned.").withStyle(ChatFormatting.RED));
                             if (completeError != null) completeError.printStackTrace();
                             return;
                         }
+                        CONTRACT_MUTATIONS_IN_FLIGHT.remove(contractId);
                         payCompleter(player, contract);
                         player.sendSystemMessage(Component.literal("Contract completed.").withStyle(ChatFormatting.GREEN));
                     }));
@@ -494,8 +570,8 @@ public final class PlayerContractService {
                         if (error != null) error.printStackTrace();
                         return;
                     }
-                    if (!player.getInventory().add(stack.copy())) {
-                        player.sendSystemMessage(Component.literal("Contract closed, but the item could not fit. Contact staff.").withStyle(ChatFormatting.RED));
+                    if (!giveItemAmount(player, stack.copy())) {
+                        player.sendSystemMessage(Component.literal("Contract closed, but the items could not fit. Contact staff.").withStyle(ChatFormatting.RED));
                         return;
                     }
                     player.sendSystemMessage(Component.literal("Claimed contract item: " + contract.title).withStyle(ChatFormatting.GREEN));
@@ -534,6 +610,64 @@ public final class PlayerContractService {
                 player.server.execute(() -> {
                     if (result.success) player.sendSystemMessage(Component.literal("Earned " + EconomyManager.format(contract.rewardCents) + ".").withStyle(ChatFormatting.GOLD));
                 }));
+    }
+
+    private static ResolvedItem resolveItemByLiteralName(String input) {
+        String wanted = normalizeItemName(input);
+        if (wanted.isBlank()) return null;
+        ResolvedItem fallback = null;
+        for (Item item : BuiltInRegistries.ITEM) {
+            if (item == null || item == net.minecraft.world.item.Items.AIR) continue;
+            String display = item.getDescription().getString();
+            if (normalizeItemName(display).equals(wanted)) return new ResolvedItem(item, display);
+            String pathName = pretty(BuiltInRegistries.ITEM.getKey(item).getPath());
+            if (fallback == null && normalizeItemName(pathName).equals(wanted)) fallback = new ResolvedItem(item, display);
+        }
+        return fallback;
+    }
+
+    private static String normalizeItemName(String value) {
+        if (value == null) return "";
+        return value.toLowerCase(Locale.ROOT).replace("é", "e").replaceAll("[^a-z0-9]", "");
+    }
+
+    private static int countMatchingItems(ServerPlayer player, String itemId) {
+        int total = 0;
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack stack = player.getInventory().getItem(i);
+            if (stack != null && !stack.isEmpty() && itemId.equalsIgnoreCase(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())) total += stack.getCount();
+        }
+        return total;
+    }
+
+    private static ItemStack removeMatchingItems(ServerPlayer player, String itemId, int amount) {
+        ItemStack collected = ItemStack.EMPTY;
+        int remaining = amount;
+        for (int i = 0; i < player.getInventory().getContainerSize() && remaining > 0; i++) {
+            ItemStack stack = player.getInventory().getItem(i);
+            if (stack == null || stack.isEmpty() || !itemId.equalsIgnoreCase(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())) continue;
+            if (collected.isEmpty()) collected = stack.copy();
+            int take = Math.min(remaining, stack.getCount());
+            stack.shrink(take);
+            remaining -= take;
+        }
+        if (remaining > 0) {
+            if (!collected.isEmpty()) { collected.setCount(amount - remaining); giveItemAmount(player, collected); }
+            return ItemStack.EMPTY;
+        }
+        collected.setCount(amount);
+        return collected;
+    }
+
+    private static boolean giveItemAmount(ServerPlayer player, ItemStack template) {
+        int remaining = template.getCount();
+        while (remaining > 0) {
+            ItemStack part = template.copy();
+            part.setCount(Math.min(remaining, part.getMaxStackSize()));
+            if (!player.getInventory().add(part)) return false;
+            remaining -= part.getCount();
+        }
+        return true;
     }
 
     private static boolean matchesItem(JsonObject criteria, ItemStack stack) {
@@ -627,13 +761,13 @@ public final class PlayerContractService {
 
     private static boolean canFit(ServerPlayer player, ItemStack stack) {
         if (player == null || stack == null || stack.isEmpty()) return false;
-        int remaining = stack.getCount();
+        int capacity = 0;
+        int max = Math.max(1, stack.getMaxStackSize());
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack current = player.getInventory().getItem(i);
-            if (current == null || current.isEmpty()) return true;
-            if (!ItemStack.isSameItemSameComponents(current, stack)) continue;
-            remaining -= Math.max(0, current.getMaxStackSize() - current.getCount());
-            if (remaining <= 0) return true;
+            if (current == null || current.isEmpty()) capacity += max;
+            else if (ItemStack.isSameItemSameComponents(current, stack)) capacity += Math.max(0, current.getMaxStackSize() - current.getCount());
+            if (capacity >= stack.getCount()) return true;
         }
         return false;
     }
@@ -722,6 +856,17 @@ public final class PlayerContractService {
     private record ContractCancelResult(boolean success, String title, long rewardCents, String error) {
         static ContractCancelResult success(String title, long rewardCents) { return new ContractCancelResult(true, title, rewardCents, null); }
         static ContractCancelResult fail(String error) { return new ContractCancelResult(false, null, 0L, error); }
+    }
+
+    private record ResolvedItem(Item item, String displayName) {}
+
+    private enum ItemPendingStep { ITEM_NAME, QUANTITY, REWARD }
+
+    private static final class PendingItemContract {
+        private ItemPendingStep step = ItemPendingStep.ITEM_NAME;
+        private String itemId = "";
+        private String displayName = "";
+        private int quantity = 1;
     }
 
     private enum PendingStep {

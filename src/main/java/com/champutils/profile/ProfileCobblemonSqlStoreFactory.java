@@ -30,6 +30,7 @@ import com.cobblemon.mod.common.pokemon.Pokemon;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.lang.reflect.Method;
 import java.lang.reflect.Field;
 
@@ -46,10 +47,13 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
     private final Map<UUID, ServerPlayer> pcHydrationViewers = new ConcurrentHashMap<>();
     private final Set<UUID> hydratedPcCache = ConcurrentHashMap.newKeySet();
     private final Set<UUID> pcLoadsInFlight = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, CompletableFuture<Void>> pcHydrationFutures = new ConcurrentHashMap<>();
     private final Set<UUID> trackedPartyStores = ConcurrentHashMap.newKeySet();
     private final Set<UUID> trackedPcStores = ConcurrentHashMap.newKeySet();
     private final Set<UUID> pendingPartyFlushes = ConcurrentHashMap.newKeySet();
     private final Set<UUID> pendingPcFlushes = ConcurrentHashMap.newKeySet();
+    /** Tracks live PC mutations so an asynchronous hydration can never replace newer player changes. */
+    private final Map<UUID, AtomicLong> pcMutationEpochs = new ConcurrentHashMap<>();
 
     public record StoreSnapshot(
             String partyNbt,
@@ -224,10 +228,12 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         pcHydrationViewers.clear();
         hydratedPcCache.clear();
         pcLoadsInFlight.clear();
+        pcHydrationFutures.clear();
         trackedPartyStores.clear();
         trackedPcStores.clear();
         pendingPartyFlushes.clear();
         pendingPcFlushes.clear();
+        pcMutationEpochs.clear();
     }
 
     @Override
@@ -240,10 +246,12 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         pcHydrationViewers.remove(profileId);
         hydratedPcCache.remove(profileId);
         pcLoadsInFlight.remove(profileId);
+        pcHydrationFutures.remove(profileId);
         trackedPartyStores.remove(profileId);
         trackedPcStores.remove(profileId);
         pendingPartyFlushes.remove(profileId);
         pendingPcFlushes.remove(profileId);
+        pcMutationEpochs.remove(profileId);
     }
 
     /**
@@ -376,6 +384,15 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         });
     }
 
+    public CompletableFuture<Void> prefetchPcAndAwait(UUID profileId, UUID accountUuid, RegistryAccess registryAccess) {
+        if (profileId == null || accountUuid == null || registryAccess == null || !DatabaseManager.isEnabled()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        prefetchPcAsync(profileId, accountUuid, registryAccess);
+        if (hydratedPcCache.contains(profileId)) return CompletableFuture.completedFuture(null);
+        return pcHydrationFutures.computeIfAbsent(profileId, ignored -> new CompletableFuture<>());
+    }
+
     public void evict(UUID profileId) {
         if (profileId == null) return;
         partyCache.remove(profileId);
@@ -383,6 +400,7 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
         pcHydrationViewers.remove(profileId);
         hydratedPcCache.remove(profileId);
         pcLoadsInFlight.remove(profileId);
+        pcHydrationFutures.remove(profileId);
         trackedPartyStores.remove(profileId);
         trackedPcStores.remove(profileId);
         pendingPartyFlushes.remove(profileId);
@@ -473,7 +491,11 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
     private void trackPc(UUID profileId, PCStore store, RegistryAccess registryAccess) {
         if (profileId == null || store == null || registryAccess == null) return;
         if (!trackedPcStores.add(profileId)) return;
-        CobblemonEventReflection.subscribe(store.getAnyChangeObservable(), ignored -> schedulePcFlush(profileId, registryAccess));
+        AtomicLong epoch = pcMutationEpochs.computeIfAbsent(profileId, ignored -> new AtomicLong());
+        CobblemonEventReflection.subscribe(store.getAnyChangeObservable(), ignored -> {
+            epoch.incrementAndGet();
+            schedulePcFlush(profileId, registryAccess);
+        });
     }
 
     private void schedulePartyFlush(UUID profileId, RegistryAccess registryAccess) {
@@ -591,7 +613,9 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
             sendPcToViewer(profileId, store);
             return;
         }
+        CompletableFuture<Void> hydrationFuture = pcHydrationFutures.computeIfAbsent(profileId, ignored -> new CompletableFuture<>());
         if (!pcLoadsInFlight.add(profileId)) return;
+        long hydrationEpoch = pcMutationEpochs.computeIfAbsent(profileId, ignored -> new AtomicLong()).get();
         DatabaseManager.supplyAsync("hydrate Cobblemon PC " + profileId, connection -> {
             String raw = readStoreRaw(connection, profileId, false);
             return raw == null || raw.isBlank() ? null : TagParser.parseTag(raw);
@@ -604,7 +628,23 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
                         return;
                     }
                     List<Pokemon> transientPokemon = snapshotPokemon(store);
-                    if (tag != null) {
+                    long currentEpoch = pcMutationEpochs.computeIfAbsent(profileId, ignored -> new AtomicLong()).get();
+                    boolean changedWhileLoading = currentEpoch != hydrationEpoch;
+                    if (tag != null && changedWhileLoading) {
+                        // Never replace a PC that changed after the SQL read was queued. Load the
+                        // database image into a temporary store and merge only Pokémon missing from
+                        // the newer live store. This preserves cursor/box moves, held-item changes,
+                        // and Pokémon deposited while the asynchronous read was in flight.
+                        UUID runtimeOwner = CobblemonProfileStorageBridge.accountUuidForProfile(profileId);
+                        if (runtimeOwner == null) runtimeOwner = profileId;
+                        PCStore databaseStore = new PCStore(runtimeOwner);
+                        databaseStore.loadFromNBT(tag, registryAccess);
+                        databaseStore.initialize();
+                        mergeMissingPokemon(store, snapshotPokemon(databaseStore));
+                        ChampDebugManager.log(ChampDebugManager.Category.PROFILES,
+                                "[PROFILE-SAFETY] Merged stale PC hydration instead of replacing live changes for profile="
+                                        + profileId + " liveSize=" + countStore(store) + " databaseSize=" + countStore(databaseStore));
+                    } else if (tag != null) {
                         clearPcBoxes(store);
                         store.loadFromNBT(tag, registryAccess);
                     }
@@ -621,6 +661,8 @@ public final class ProfileCobblemonSqlStoreFactory implements PokemonStoreFactor
                     throwable.printStackTrace();
                 } finally {
                     pcLoadsInFlight.remove(profileId);
+                    if (error == null) hydrationFuture.complete(null);
+                    else hydrationFuture.completeExceptionally(error);
                 }
             };
             if (server != null) server.execute(applyHydration);

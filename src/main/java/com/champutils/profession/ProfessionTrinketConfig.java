@@ -28,7 +28,7 @@ public final class ProfessionTrinketConfig {
         /** Extra flat percent chance. Capped in ProfessionTrinketManager so old configs cannot become overpowered. */
         public double shinyChancePercent;
         public int pouchSlots;
-        /** Percent chance to add a second base profession XP reward. */
+        /** Guaranteed profession XP bonus percent. Retains the legacy field name for config compatibility. */
         public double professionXpDoubleChancePercent;
         /** Decimal bonus, written as percent in config. 25.0 = +25%. */
         public double pokemonXpBonusPercent;
@@ -40,6 +40,16 @@ public final class ProfessionTrinketConfig {
         public double rarePokemonSpawnBonusPercent;
         /** Relative boost to existing chunk odds, not a flat chance. */
         public double chunkChanceBonusPercent;
+        /** Radius in blocks for Totem of Growth. */
+        public int growthRadiusBlocks;
+        /** Additional growth speed percent for supported crops, berries, and apricorns. */
+        public double growthSpeedBonusPercent;
+        /** Percent reduction to player exhaustion/hunger drain. 100 prevents hunger loss. */
+        public double hungerReductionPercent;
+        /** Extra same-seed placements triggered by Seed Pouch. */
+        public int seedPouchExtraPlacements;
+        /** Additional breeding cooldown reduction applied after profession reduction. */
+        public double incubatorCooldownReductionPercent;
     }
 
     public static void load() {
@@ -83,30 +93,38 @@ public final class ProfessionTrinketConfig {
             if (t.shinyChancePercent < 0) t.shinyChancePercent = def.shinyChancePercent;
             if (t.pouchSlots <= 0) t.pouchSlots = def.pouchSlots;
             if (t.professionXpDoubleChancePercent <= 0) t.professionXpDoubleChancePercent = def.professionXpDoubleChancePercent;
+            // Enforce the current tier ceiling so legacy configs with the old 10-125% values are safely nerfed.
+            t.professionXpDoubleChancePercent = Math.min(t.professionXpDoubleChancePercent, def.professionXpDoubleChancePercent);
             if (t.pokemonXpBonusPercent <= 0) t.pokemonXpBonusPercent = def.pokemonXpBonusPercent;
             if (t.friendshipBonusPercent <= 0) t.friendshipBonusPercent = def.friendshipBonusPercent;
             if (t.levelCharmGymCapPercent <= 0) t.levelCharmGymCapPercent = def.levelCharmGymCapPercent;
             if (t.rarePokemonSpawnBonusPercent <= 0) t.rarePokemonSpawnBonusPercent = def.rarePokemonSpawnBonusPercent;
             if (t.chunkChanceBonusPercent <= 0) t.chunkChanceBonusPercent = def.chunkChanceBonusPercent;
+            if (t.growthRadiusBlocks <= 0) t.growthRadiusBlocks = def.growthRadiusBlocks;
+            if (t.growthSpeedBonusPercent <= 0) t.growthSpeedBonusPercent = def.growthSpeedBonusPercent;
+            if (t.hungerReductionPercent <= 0) t.hungerReductionPercent = def.hungerReductionPercent;
+            if (t.seedPouchExtraPlacements <= 0) t.seedPouchExtraPlacements = def.seedPouchExtraPlacements;
+            if (t.incubatorCooldownReductionPercent <= 0) t.incubatorCooldownReductionPercent = def.incubatorCooldownReductionPercent;
         }
         return c;
     }
 
     private static Config defaults() {
         Config c = new Config();
-        add(c, "F", 16, 1, 0.0025, 2, 0.5, 1, 5, 10, 1, 1);
-        add(c, "E", 16, 2, 0.0050, 3, 1.0, 3, 10, 20, 3, 2);
-        add(c, "D", 16, 3, 0.0075, 5, 2.0, 5, 15, 30, 5, 4);
-        add(c, "C", 16, 4, 0.0125, 7, 3.0, 10, 20, 40, 8, 7);
-        add(c, "B", 16, 5, 0.0150, 8, 4.5, 14, 23, 48, 10, 9);
-        add(c, "A", 16, 6, 0.0175, 10, 6.5, 18, 27, 58, 12, 13);
-        add(c, "S", 16, 7, 0.0250, 15, 10.0, 25, 35, 70, 15, 20);
+        add(c, "F", 16, 1, 0.0025, 2, 2.5, 1, 5, 10, 1, 10, 2, 25, 10, 1, 5);
+        add(c, "E", 16, 2, 0.0050, 3, 5.0, 3, 10, 20, 3, 15, 4, 50, 15, 2, 10);
+        add(c, "D", 16, 3, 0.0075, 5, 7.5, 5, 15, 30, 5, 22.5, 8, 100, 25, 4, 15);
+        add(c, "C", 16, 4, 0.0125, 7, 10.0, 10, 20, 40, 8, 32.5, 16, 175, 37, 8, 20);
+        add(c, "B", 16, 5, 0.0150, 8, 15.0, 14, 23, 48, 10, 45, 32, 300, 50, 16, 30);
+        add(c, "A", 16, 6, 0.0175, 10, 20.0, 18, 27, 58, 12, 65, 64, 500, 70, 32, 40);
+        add(c, "S", 16, 7, 0.0250, 15, 25.0, 25, 35, 70, 15, 100, 128, 800, 100, 64, 50);
         return c;
     }
 
     private static void add(Config c, String rarity, int cost, double magnet, double shiny, int pouch,
                             double professionXp, double pokemonXp, double friendship, double levelCharm,
-                            double rarePokemon, double chunkyBrick) {
+                            double rarePokemon, double chunkyBrick, int growthRadius, double growthSpeed, double hungerReduction,
+                            int seedPouchExtraPlacements, double incubatorCooldownReductionPercent) {
         Tier t = new Tier();
         t.sameTierFragmentCost = cost;
         t.sameTierEssenceCost = cost;
@@ -119,6 +137,11 @@ public final class ProfessionTrinketConfig {
         t.levelCharmGymCapPercent = levelCharm;
         t.rarePokemonSpawnBonusPercent = rarePokemon;
         t.chunkChanceBonusPercent = chunkyBrick;
+        t.growthRadiusBlocks = growthRadius;
+        t.growthSpeedBonusPercent = growthSpeed;
+        t.hungerReductionPercent = hungerReduction;
+        t.seedPouchExtraPlacements = seedPouchExtraPlacements;
+        t.incubatorCooldownReductionPercent = incubatorCooldownReductionPercent;
         c.tiers.put(rarity, t);
     }
 }

@@ -659,7 +659,12 @@ public final class AuctionHouseService {
                     player.sendSystemMessage(Component.literal(notification.title + " - " + notification.message).withStyle(ChatFormatting.GREEN));
                 }
             }
-            try { NotificationRepository.markDelivered(notifications); } catch (Exception e) { e.printStackTrace(); }
+            DatabaseManager.runAsync("mark auction notifications delivered", connection ->
+                    NotificationRepository.markDelivered(notifications)
+            ).exceptionally(markError -> {
+                markError.printStackTrace();
+                return null;
+            });
         }));
 
         DatabaseManager.supplyAsync("auction service async task", connection -> {

@@ -30,7 +30,7 @@ public final class BattleTowerPoolConfig {
     private static void normalize() { if (DATA.tiers==null) DATA.tiers=new LinkedHashMap<>(); Config d=defaults(); for(int i=1;i<=10;i++){String k=String.valueOf(i); Tier t=DATA.tiers.get(k); if(t==null||t.pool==null||t.pool.isEmpty()) DATA.tiers.put(k,d.tiers.get(k)); else {t.tier=i;t.pokemonCount=Math.max(1,Math.min(6,t.pokemonCount));t.aiSkill=Math.max(0,Math.min(5,t.aiSkill));}} }
 
     public static final class Config { public Map<String,Tier> tiers=new LinkedHashMap<>(); }
-    public static final class Tier { public int tier; public int pokemonCount=3; public int aiSkill=2; public List<SetEntry> pool=new ArrayList<>(); }
+    public static final class Tier { public int tier; public int pokemonCount=2; public int aiSkill=2; public List<SetEntry> pool=new ArrayList<>(); }
     public static final class SetEntry { public String species=""; public String ability=""; public String nature=""; public String heldItem=""; public List<String> moves=new ArrayList<>(); public Map<String,Integer> evs=maxEvs(); public Map<String,Integer> ivs=maxIvs(); public double weight=1.0; }
     private static Map<String,Integer> maxEvs(){Map<String,Integer> m=new LinkedHashMap<>(); for(String s:List.of("hp","attack","defence","special_attack","special_defence","speed"))m.put(s,252); return m;}
     private static Map<String,Integer> maxIvs(){Map<String,Integer> m=new LinkedHashMap<>(); for(String s:List.of("hp","attack","defence","special_attack","special_defence","speed"))m.put(s,31); return m;}
@@ -50,6 +50,6 @@ public final class BattleTowerPoolConfig {
           {{"collisioncourse","flareblitz","dragonclaw","uturn"},{"electrodrift","dracometeor","overheat","voltswitch"},{"astralbarrage","psychic","drainingkiss","nastyplot"},{"behemothblade","playrough","closecombat","wildcharge"},{"judgment","icebeam","recover","calmmind"},{"sacredfire","bravebird","earthquake","recover"}},
           {{"electrodrift","dracometeor","overheat","voltswitch"},{"collisioncourse","flareblitz","dragonclaw","uturn"},{"astralbarrage","psychic","drainingkiss","nastyplot"},{"behemothblade","playrough","closecombat","wildcharge"},{"sunsteelstrike","earthquake","knockoff","morning sun"},{"judgment","earthpower","icebeam","recover"}}
         };
-        for(int t=1;t<=10;t++){Tier tier=new Tier();tier.tier=t;tier.pokemonCount=Math.min(6,2+(t+1)/2);tier.aiSkill=Math.min(5,1+(t/2)); for(int i=0;i<species[t-1].length;i++){String sp=species[t-1][i]; String[] mv=moves[t-1][i]; tier.pool.add(set(sp,"","jolly","leftovers",mv));} c.tiers.put(String.valueOf(t),tier);} return c;
+        for(int t=1;t<=10;t++){Tier tier=new Tier();tier.tier=t;tier.pokemonCount=2;tier.aiSkill=Math.min(5,1+(t/2)); for(int i=0;i<species[t-1].length;i++){String sp=species[t-1][i]; String[] mv=moves[t-1][i]; tier.pool.add(set(sp,"","jolly","leftovers",mv));} c.tiers.put(String.valueOf(t),tier);} return c;
     }
 }

@@ -33,6 +33,7 @@ public class QuestDataManager {
         public String periodKey;
         public boolean completed;
         public ArrayList<Objective> objectives = new ArrayList<>();
+        public HashSet<String> completedPlayers = new HashSet<>();
     }
 
     public static class Objective {
@@ -60,6 +61,7 @@ public class QuestDataManager {
         public long expiresAtMillis;
         public int creditCost;
         public int rewardCredits;
+        public int rewardProfessionXp;
         public String difficulty;
         public boolean completed;
         public ArrayList<String> rewardCommands = new ArrayList<>();
@@ -141,6 +143,7 @@ public class QuestDataManager {
             data.guildName = guildName;
             if (data.weekly == null) data.weekly = new QuestSet();
             if (data.weekly.objectives == null) data.weekly.objectives = new ArrayList<>();
+            if (data.weekly.completedPlayers == null) data.weekly.completedPlayers = new HashSet<>();
             if (data.claimedWeekly == null) data.claimedWeekly = new HashSet<>();
             for (Objective o : data.weekly.objectives) {
                 if (o.playerProgress == null) o.playerProgress = new HashMap<>();
@@ -195,6 +198,7 @@ public class QuestDataManager {
         data.guildName = guildName == null ? "" : guildName;
         if (data.weekly == null) data.weekly = new QuestSet();
         if (data.weekly.objectives == null) data.weekly.objectives = new ArrayList<>();
+        if (data.weekly.completedPlayers == null) data.weekly.completedPlayers = new HashSet<>();
         if (data.claimedWeekly == null) data.claimedWeekly = new HashSet<>();
         for (Objective o : data.weekly.objectives) {
             if (o == null) continue;

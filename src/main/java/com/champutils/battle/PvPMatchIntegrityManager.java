@@ -50,7 +50,10 @@ public final class PvPMatchIntegrityManager {
         long elapsedSeconds = Math.max(0L, (System.currentTimeMillis() - state.startedAtMillis) / 1000L);
         int faintCount = Math.max(0, state.faintCount.get());
         int threshold = Math.max(15, RankedTokenConfig.CONFIG.immediateForfeitSeconds);
-        boolean immediateForfeit = faintCount == 0 && elapsedSeconds < threshold;
+        // A fast legitimate win is valid. The fake-match guard only applies when the
+        // battle ended before the threshold AND nobody fainted, which is the reliable
+        // signature of joining and immediately forfeiting.
+        boolean immediateForfeit = elapsedSeconds < threshold && faintCount == 0;
         return new Result(true, !immediateForfeit, immediateForfeit, elapsedSeconds, faintCount);
     }
 
@@ -59,7 +62,7 @@ public final class PvPMatchIntegrityManager {
         if (winner == null || loser == null) return false;
         long now = System.currentTimeMillis();
         long cooldownMillis = Math.max(300_000L,
-                Math.max(0, RankedTokenConfig.CONFIG.sameOpponentCooldownHours) * 3_600_000L);
+                Math.max(0, RankedTokenConfig.CONFIG.sameOpponentCooldownMinutes) * 60_000L);
         String pair = winner + ":" + loser;
         Long previous = CONSOLATION_COOLDOWNS.putIfAbsent(pair, now);
         if (previous == null) return true;

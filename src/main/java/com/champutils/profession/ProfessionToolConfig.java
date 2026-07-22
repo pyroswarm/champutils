@@ -957,8 +957,7 @@ public class ProfessionToolConfig {
                         false,
                         Map.of(
                                 "miningSpeed", new StatRange(25.0D, 60.0D, 2.0D),
-                                "durabilityBonus", new StatRange(25.0D, 75.0D, 1.0D),
-                                "excavationSeconds", new StatRange(8.0D, 14.0D, 1.0D)
+                                "durabilityBonus", new StatRange(25.0D, 75.0D, 1.0D)
                         ),
                         List.of("durability_save"),
                         "excavation",
@@ -978,8 +977,7 @@ public class ProfessionToolConfig {
                         false,
                         Map.of(
                                 "miningSpeed", new StatRange(35.0D, 80.0D, 2.0D),
-                                "durabilityBonus", new StatRange(50.0D, 120.0D, 1.0D),
-                                "excavationSeconds", new StatRange(10.0D, 17.0D, 1.0D)
+                                "durabilityBonus", new StatRange(50.0D, 120.0D, 1.0D)
                         ),
                         List.of("durability_save"),
                         "excavation",
@@ -1000,8 +998,7 @@ public class ProfessionToolConfig {
                         Map.of(
                                 "miningSpeed", new StatRange(50.0D, 110.0D, 2.0D),
                                 "fortuneBonus", new StatRange(2.0D, 8.0D, 2.0D),
-                                "durabilityBonus", new StatRange(75.0D, 175.0D, 1.0D),
-                                "excavationSeconds", new StatRange(12.0D, 20.0D, 1.0D)
+                                "durabilityBonus", new StatRange(75.0D, 175.0D, 1.0D)
                         ),
                         List.of("bonus_ore_drops", "durability_save"),
                         "excavation",
@@ -1022,8 +1019,7 @@ public class ProfessionToolConfig {
                         Map.of(
                                 "miningSpeed", new StatRange(70.0D, 145.0D, 2.0D),
                                 "fortuneBonus", new StatRange(5.0D, 14.0D, 2.0D),
-                                "durabilityBonus", new StatRange(125.0D, 300.0D, 1.0D),
-                                "excavationSeconds", new StatRange(15.0D, 25.0D, 1.0D)
+                                "durabilityBonus", new StatRange(125.0D, 300.0D, 1.0D)
                         ),
                         List.of("bonus_ore_drops", "durability_save"),
                         "excavation",
@@ -1044,8 +1040,7 @@ public class ProfessionToolConfig {
                         Map.of(
                                 "miningSpeed", new StatRange(80.0D, 162.0D, 2.0D),
                                 "fortuneBonus", new StatRange(6.0D, 17.0D, 2.0D),
-                                "durabilityBonus", new StatRange(165.0D, 400.0D, 1.0D),
-                                "excavationSeconds", new StatRange(16.0D, 27.0D, 1.0D)
+                                "durabilityBonus", new StatRange(165.0D, 400.0D, 1.0D)
                         ),
                         List.of("bonus_ore_drops", "durability_save"),
                         "excavation",
@@ -1066,8 +1061,7 @@ public class ProfessionToolConfig {
                         Map.of(
                                 "miningSpeed", new StatRange(90.0D, 180.0D, 2.0D),
                                 "fortuneBonus", new StatRange(8.0D, 20.0D, 2.0D),
-                                "durabilityBonus", new StatRange(200.0D, 500.0D, 1.0D),
-                                "excavationSeconds", new StatRange(18.0D, 30.0D, 1.0D)
+                                "durabilityBonus", new StatRange(200.0D, 500.0D, 1.0D)
                         ),
                         List.of("bonus_ore_drops", "durability_save"),
                         "excavation",
@@ -1088,8 +1082,7 @@ public class ProfessionToolConfig {
                         Map.of(
                                 "miningSpeed", new StatRange(140.0D, 260.0D, 2.0D),
                                 "fortuneBonus", new StatRange(15.0D, 30.0D, 2.0D),
-                                "durabilityBonus", new StatRange(400.0D, 800.0D, 1.0D),
-                                "excavationSeconds", new StatRange(24.0D, 40.0D, 1.0D)
+                                "durabilityBonus", new StatRange(400.0D, 800.0D, 1.0D)
                         ),
                         List.of("bonus_ore_drops", "durability_save"),
                         "excavation",

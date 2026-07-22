@@ -87,12 +87,16 @@ public final class ProfessionSubLevelManager {
         int perLevel = Math.max(1, settings.sublevelXpPerLevel);
         double growth = Math.max(1.0D, settings.sublevelXpGrowthAfter50);
 
+        // Mastery levels are supplemental progression and should rise far faster
+        // than the parent profession. Keep levels 1-50 linear, then apply only a
+        // very shallow late-game multiplier instead of the profession-style curve.
+        int linearRequirement = base + (safeLevel * perLevel);
         if (safeLevel < 50) {
-            return Math.max(1, base + (safeLevel * perLevel));
+            return Math.max(1, linearRequirement);
         }
 
-        double baseAtFifty = base + (50.0D * perLevel);
-        double scaled = baseAtFifty * Math.pow(growth, safeLevel - 49);
+        double lateLevelMultiplier = 1.0D + ((safeLevel - 49) * (growth - 1.0D));
+        double scaled = linearRequirement * lateLevelMultiplier;
         return Math.max(1, (int) Math.min(Integer.MAX_VALUE / 4, Math.round(scaled)));
     }
 

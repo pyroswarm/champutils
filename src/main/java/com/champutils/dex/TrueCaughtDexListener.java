@@ -43,6 +43,7 @@ public final class TrueCaughtDexListener {
                         if (pokemon instanceof com.cobblemon.mod.common.pokemon.Pokemon p) {
                             PokemonOriginManager.markOrigin(p, PokemonOriginManager.ORIGIN_WILD_CAPTURE);
                             BuffManager.applyCatchBuffs(BuffContext.trueWildCatch(player, p));
+                            com.champutils.quest.QuestManager.recordCaughtPokemon(player, p);
                         }
                     }
                 } catch (Throwable throwable) {

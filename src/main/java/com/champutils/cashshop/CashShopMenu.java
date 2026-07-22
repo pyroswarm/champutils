@@ -19,9 +19,12 @@ public final class CashShopMenu {
                 .addLoreLine(Component.literal("§7VIP+ Earned: §d" + BoosterCreditManager.vipPlusCredits(player) + "§7/§d10"))
                 .addLoreLine(Component.literal("§7VIP+ earns up to 3 per day:"))
                 .addLoreLine(Component.literal("§7join, +1h played, +2h played.")));
-        int slot = 10;
+        int[] boosterSlots = {9, 10, 11, 12, 13, 14, 15, 16, 17, 19, 20, 21, 22, 23, 24, 25, 26};
+        int boosterIndex = 0;
         for (CashShopBoostItemManager.Def def : CashShopBoostItemManager.defs()) {
-            gui.setSlot(slot++, new GuiElementBuilder(Items.NETHER_STAR).hideDefaultTooltip()
+            if (boosterIndex >= boosterSlots.length) break;
+            int slot = boosterSlots[boosterIndex++];
+            gui.setSlot(slot, new GuiElementBuilder(Items.NETHER_STAR).hideDefaultTooltip()
                     .setName(Component.literal(def.name))
                     .addLoreLine(Component.literal("§7" + def.lore))
                     .addLoreLine(Component.literal("§7Duration: §f15 minutes"))

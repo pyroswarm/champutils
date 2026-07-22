@@ -12,7 +12,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.UUID;
 
-/** Spawns one temporary, player-owned Battle Tower trainer and immediately starts a 3v-party NPC battle. */
+/** Spawns one temporary, player-owned Battle Tower trainer and immediately starts a two-Pokémon NPC battle. */
 public final class BattleTowerTrainerBattle {
     private BattleTowerTrainerBattle() {}
 
@@ -56,7 +56,7 @@ public final class BattleTowerTrainerBattle {
 
             // Run the same challenge preparation used by ordinary roaming trainers, then launch the
             // battle automatically. Tower fights intentionally do not clone or heal the player's party,
-            // preserving damage/PP across the ten-floor segment.
+            // preserving damage/PP between the five-floor healing breaks.
             if (!RoamingTrainerManager.tryStartChallenge(player, npc)) {
                 RoamingTrainerManager.removeTrainerSilently(player.getServer(), npcUuid);
                 return null;

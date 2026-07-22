@@ -37,6 +37,7 @@ import java.time.LocalDateTime;
 import java.lang.reflect.Method;
 import java.time.ZoneId;
 import java.time.temporal.WeekFields;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -344,12 +345,27 @@ public final class AdventurerGuildManager {
         public long expiresAtMillis = 0L;
     }
 
+
+    public static boolean isPlayerRequestRestricted(ServerPlayer player) {
+        return player != null && (PlayerProfileManager.isIslander(player)
+                || PlayerProfileManager.isIronman(player)
+                || PlayerProfileManager.isNuzlocke(player));
+    }
+
+    private static boolean denyRestrictedPlayerRequest(ServerPlayer player) {
+        if (!isPlayerRequestRestricted(player)) return false;
+        player.closeContainer();
+        player.sendSystemMessage(Component.literal("Adventurer player requests are unavailable on Islander, Ironman, and Nuzlocke profiles.").withStyle(ChatFormatting.RED));
+        return true;
+    }
+
     public static boolean startRoamingLeague(ServerPlayer player, RoamingTrainerRarity rarity) {
         return startRoamingLeague(player, rarity, false);
     }
 
     private static boolean startRoamingLeague(ServerPlayer player, RoamingTrainerRarity rarity, boolean locationResolved) {
         if (player == null || !AdventurerGuildConfig.SETTINGS.enabled) return false;
+        if (denyRestrictedPlayerRequest(player)) return false;
         RoamingTrainerRarity safeRarity = rarity == null ? RoamingTrainerRarity.F : rarity;
         AdventurerGuildDataManager.PlayerData data = getData(player);
         AdventurerGuildConfig.RoamingLeagueEntry entry = AdventurerGuildConfig.roamingEntry(safeRarity);
@@ -460,15 +476,21 @@ public final class AdventurerGuildManager {
         if (floor <= 0) floor = 1;
         int maxFloor = Math.max(1, AdventurerGuildConfig.SETTINGS.battleTowerMaxFloor);
         boolean checkpointReached = isCheckpointFloor(floor) || floor >= maxFloor;
+        boolean healReached = isHealingFloor(floor) || floor >= maxFloor;
 
         data.bestTowerFloor = Math.max(data.bestTowerFloor, floor);
         if (checkpointReached) {
             claimTowerTierReward(player, data, floor);
-            healParty(player);
             AdventureGuideManager.increment(player, "battle_tower_checkpoint", 1);
             com.champutils.worldfirst.WorldFirstManager.award(player, "first_battle_tower_" + floor);
             com.champutils.cosmetic.TitleManager.unlock(player, "tower_floor_" + floor);
-            player.sendSystemMessage(Component.literal("Checkpoint " + floor + " cleared. Your party has been healed.").withStyle(ChatFormatting.GOLD));
+        }
+        if (healReached) {
+            healParty(player);
+            String message = checkpointReached
+                    ? "Checkpoint " + floor + " cleared. Your party has been healed."
+                    : "Floor " + floor + " cleared. Your party has been healed.";
+            player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.GOLD));
         }
         clearActiveTower(data);
 
@@ -488,7 +510,7 @@ public final class AdventurerGuildManager {
         }
         data.towerFloor = floor + 1;
         markDirty(player); savePlayer(player); notifyRankProgress(player, data);
-        BattleTowerContinueMenu.open(player, floor, checkpointReached);
+        BattleTowerContinueMenu.open(player, floor, healReached);
     }
 
     private static void claimTowerTierReward(ServerPlayer player, AdventurerGuildDataManager.PlayerData data, int floor) {
@@ -527,10 +549,14 @@ public final class AdventurerGuildManager {
         AdventurerGuildConfig.RoamingLeagueEntry entry = AdventurerGuildConfig.roamingEntry(rarity);
         addRenown(data, Math.max(0, entry.rewardRenown));
         addMarks(data, Math.max(0, entry.rewardMarks));
+        if (entry.rewardCredits > 0) {
+            EconomyManager.depositAsync(player, EconomyManager.wholeCreditsToCents(entry.rewardCredits), "adventurer_request:" + rarity.name().toLowerCase(Locale.ROOT));
+        }
         runRewardCommands(player, entry.rewardCommands);
         markDirty(player);
         savePlayer(player);
-        player.sendSystemMessage(Component.literal("Adventurer request reward: +" + entry.rewardRenown + " Adventurer XP, +" + entry.rewardMarks + " Adventurer's Marks.").withStyle(rarity.color));
+        String creditText = entry.rewardCredits > 0 ? ", +" + entry.rewardCredits + " Credits" : "";
+        player.sendSystemMessage(Component.literal("Adventurer request reward: +" + entry.rewardRenown + " Adventurer XP, +" + entry.rewardMarks + " Adventurer's Marks" + creditText + ".").withStyle(rarity.color));
         notifyRankProgress(player, data);
     }
 
@@ -608,10 +634,46 @@ public final class AdventurerGuildManager {
         }
         data.claimedRankRewards.add(bestClaimable.id.toUpperCase(Locale.ROOT));
         awardConfigured(player, data, bestClaimable.rewardCredits, 0, bestClaimable.rewardMarks, bestClaimable.rewardCommands, "adventurer_rank:" + bestClaimable.id);
-        player.sendSystemMessage(Component.literal("Claimed " + bestClaimable.displayName + " rank reward.").withStyle(ChatFormatting.GOLD));
+        player.sendSystemMessage(Component.literal("Claimed " + bestClaimable.displayName + " rank reward:").withStyle(ChatFormatting.GOLD));
+        for (Component rewardLine : rankRewardPreview(bestClaimable)) player.sendSystemMessage(rewardLine);
         markDirty(player);
         savePlayer(player);
         return true;
+    }
+
+
+    public static List<Component> rankRewardPreview(AdventurerGuildConfig.RankDefinition rank) {
+        List<Component> lines = new ArrayList<>();
+        if (rank == null) return lines;
+        if (rank.rewardCredits > 0) lines.add(Component.literal("  • " + EconomyManager.formatWholeCredits(rank.rewardCredits)).withStyle(ChatFormatting.GOLD));
+        if (rank.rewardMarks > 0) lines.add(Component.literal("  • " + rank.rewardMarks + " Adventurer's Marks").withStyle(ChatFormatting.AQUA));
+        if (rank.rewardCommands != null) {
+            for (String command : rank.rewardCommands) {
+                String described = describeRewardCommand(command);
+                if (!described.isBlank()) lines.add(Component.literal("  • " + described).withStyle(ChatFormatting.YELLOW));
+            }
+        }
+        if (lines.isEmpty()) lines.add(Component.literal("  • No configured rewards").withStyle(ChatFormatting.GRAY));
+        return lines;
+    }
+
+    private static String describeRewardCommand(String raw) {
+        if (raw == null || raw.isBlank()) return "";
+        String command = raw.trim().replaceFirst("^/", "");
+        String lower = command.toLowerCase(Locale.ROOT);
+        String[] parts = command.split("\\s+");
+        if (lower.startsWith("opencrates givekey") && parts.length >= 5) {
+            return parts[4] + "x " + parts[3].toUpperCase(Locale.ROOT) + " Rank Crate Key";
+        }
+        if (lower.startsWith("give ") && parts.length >= 3) {
+            String item = parts[2];
+            int colon = item.indexOf(':');
+            if (colon >= 0) item = item.substring(colon + 1);
+            item = item.replace('_', ' ');
+            String amount = parts.length >= 4 ? parts[3] : "1";
+            return amount + "x " + Character.toUpperCase(item.charAt(0)) + item.substring(1);
+        }
+        return command.replace("%player%", "you");
     }
 
     public static String currentRankId(ServerPlayer player) {
@@ -951,6 +1013,7 @@ public final class AdventurerGuildManager {
     private static int checkpointForBest(int bestFloor) { return bestFloor < 10 ? 1 : Math.min(91,(bestFloor/10)*10+1); }
     private static int previousCheckpointFloor(int floor) { return Math.max(0,((Math.max(1,floor)-1)/10)*10); }
     private static boolean isCheckpointFloor(int floor) { return floor % 10 == 0 || floor >= Math.max(1,AdventurerGuildConfig.SETTINGS.battleTowerMaxFloor); }
+    private static boolean isHealingFloor(int floor) { return floor > 0 && floor % 5 == 0; }
 
 
     private record TowerPlacement(Vec3 playerPos, float playerYaw, Vec3 npcPos, float npcYaw) {}

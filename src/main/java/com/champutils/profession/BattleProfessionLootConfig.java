@@ -36,6 +36,15 @@ public final class BattleProfessionLootConfig {
     public static int extraPokemonDropsCopyEveryLevels = 25;
     public static int extraPokemonDropsMaxExtraCopies = 2;
     public static int extraPokemonDropsMaxAddedEntries = 12;
+
+    // Raises the actual chance of each native Cobblemon Pokémon drop entry.
+    // Bonuses are relative multipliers: 0.005 per level means +0.5% of the
+    // entry's original chance per Battling level. Matching type masteries
+    // contribute separately.
+    public static boolean nativeDropChanceBoostEnabled = true;
+    public static double nativeDropChanceBonusPerBattlingLevel = 0.005D;
+    public static double nativeDropChanceBonusPerMatchingMasteryLevel = 0.001D;
+    public static double nativeDropChanceMaxRelativeBonus = 1.0D;
     public static MoneyRewardSettings moneyRewards = new MoneyRewardSettings();
 
     public static FragmentJackpotSettings fragmentJackpots = new FragmentJackpotSettings();
@@ -86,6 +95,10 @@ public final class BattleProfessionLootConfig {
             extraPokemonDropsCopyEveryLevels = loaded.extraPokemonDropsCopyEveryLevels;
             extraPokemonDropsMaxExtraCopies = loaded.extraPokemonDropsMaxExtraCopies;
             extraPokemonDropsMaxAddedEntries = loaded.extraPokemonDropsMaxAddedEntries;
+            nativeDropChanceBoostEnabled = loaded.nativeDropChanceBoostEnabled;
+            nativeDropChanceBonusPerBattlingLevel = loaded.nativeDropChanceBonusPerBattlingLevel;
+            nativeDropChanceBonusPerMatchingMasteryLevel = loaded.nativeDropChanceBonusPerMatchingMasteryLevel;
+            nativeDropChanceMaxRelativeBonus = loaded.nativeDropChanceMaxRelativeBonus;
             moneyRewards = loaded.moneyRewards != null ? loaded.moneyRewards : new MoneyRewardSettings();
             superRareItemIds = normalizeItemIds(loaded.superRareItemIds);
             if (superRareItemIds.isEmpty()) {
@@ -131,6 +144,10 @@ public final class BattleProfessionLootConfig {
         public int extraPokemonDropsCopyEveryLevels = 25;
         public int extraPokemonDropsMaxExtraCopies = 2;
         public int extraPokemonDropsMaxAddedEntries = 12;
+        public boolean nativeDropChanceBoostEnabled = true;
+        public double nativeDropChanceBonusPerBattlingLevel = 0.005D;
+        public double nativeDropChanceBonusPerMatchingMasteryLevel = 0.001D;
+        public double nativeDropChanceMaxRelativeBonus = 1.0D;
         public Set<String> superRareItemIds = defaultSuperRareItemIds();
         public MoneyRewardSettings moneyRewards = new MoneyRewardSettings();
         public FragmentJackpotSettings fragmentJackpots = new FragmentJackpotSettings();

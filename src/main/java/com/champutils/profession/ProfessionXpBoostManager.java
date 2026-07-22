@@ -86,7 +86,7 @@ public final class ProfessionXpBoostManager {
             return baseAmount;
         }
 
-        double totalBonus = getTotalBonus(player, profession);
+        double totalBonus = getTotalBonus(player, profession) + ProfessionTrinketManager.professionXpGemBonus(player);
         int boosted = baseAmount;
         int wholeBonus = 0;
 
@@ -106,13 +106,8 @@ public final class ProfessionXpBoostManager {
             boosted += Math.max(0, wholeBonus);
         }
 
-        boolean trinketDoubled = ProfessionTrinketManager.rollDoubleProfessionXp(player);
-        if (trinketDoubled) {
-            boosted += baseAmount;
-        }
-
         // Profession bonus notifications must never spam chat. Show a throttled action-bar summary instead.
-        int actionBarBonus = Math.max(0, wholeBonus) + (trinketDoubled ? baseAmount : 0);
+        int actionBarBonus = Math.max(0, wholeBonus);
         if (actionBarBonus > 0 && shouldNotifyActionBar(player, profession)) {
             player.displayClientMessage(Component.literal("+" + actionBarBonus + " bonus " + profession.name() + " XP").withStyle(ChatFormatting.GREEN), true);
         }

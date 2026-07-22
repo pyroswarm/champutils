@@ -61,7 +61,10 @@ public final class TitleManager {
         sqlLoadingAccounts.clear();
         subtitlesByProfile.clear();
         TitleDatabaseRepository.ensureSchemaAsync();
-        loadSelections();
+        // title_selections.json is only a non-SQL fallback. Loading it while SQL is enabled lets
+        // each backend seed stale selections and putIfAbsent then prevents the shared SQL value
+        // from winning on Eclipse/Nova switches.
+        if (!com.champutils.database.DatabaseManager.isEnabled()) loadSelections();
     }
 
     public static synchronized void save() {
@@ -248,6 +251,25 @@ public final class TitleManager {
         return "&7[" + id + "]";
     }
 
+    public static void refreshProfileAsync(ServerPlayer player) {
+        if (player == null || !com.champutils.database.DatabaseManager.isEnabled()) return;
+        UUID profileId = PlayerProfileManager.activeProfileId(player.getUUID());
+        if (profileId == null) return;
+        sqlLoadedProfiles.remove(profileId);
+        sqlLoadingProfiles.remove(profileId);
+        TitleDatabaseRepository.loadSnapshotAsync(profileId).thenAccept(snapshot -> player.getServer().execute(() -> {
+            Set<String> owned = ConcurrentHashMap.newKeySet();
+            owned.addAll(snapshot.unlocked());
+            sqlUnlockedCache.put(profileId, owned);
+            selectedByProfile.put(profileId.toString(), snapshot.selected() == null ? "" : snapshot.selected());
+            Set<String> subs = subtitleSetForProfile(profileId);
+            subs.clear();
+            if (snapshot.subtitles() != null) subs.addAll(snapshot.subtitles());
+            sqlLoadedProfiles.add(profileId);
+            com.champutils.chat.ChatTagResolver.invalidate(player);
+        }));
+    }
+
     public static void preloadAsync(UUID profileId) {
         if (profileId == null || !com.champutils.database.DatabaseManager.isEnabled()) return;
         if (sqlLoadedProfiles.contains(profileId) || !sqlLoadingProfiles.add(profileId)) return;
@@ -256,7 +278,7 @@ public final class TitleManager {
             // Merge instead of replacing so a title earned while the async preload was in-flight
             // cannot disappear from the live cache before its queued SQL write completes.
             existing.addAll(snapshot.unlocked());
-            selectedByProfile.putIfAbsent(profileId.toString(), snapshot.selected() == null ? "" : snapshot.selected());
+            selectedByProfile.put(profileId.toString(), snapshot.selected() == null ? "" : snapshot.selected());
             if (snapshot.subtitles() != null) {
                 Set<String> subtitles = subtitleSetForProfile(profileId);
                 subtitles.addAll(snapshot.subtitles());

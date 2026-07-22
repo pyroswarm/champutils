@@ -27,13 +27,17 @@
     "CraftingArmorBlockerMixin",
     "ProfessionArmorDamageReductionMixin",
     "PlayerUnderwaterMiningMixin",
+    "PokeSnaxHungerMixin",
     "RedstoneAutoModLevelMixin",
+    "MovementValidationBypassMixin",
+    "ProfessionNotificationOverflowMixin",
     "AntiAfkServerGamePacketListenerMixin",
     "AntiAfkContainerClickMixin",
     "InvalidContainerClickGuardMixin",
     "BattleSelectActionsHandlerMixin",
     "BreedingEggSendOutMixin",
-    "BreedingEggBattleTeamMixin"
+    "BreedingEggBattleTeamMixin",
+    "TrialSpawnerGameruleMixin"
   ],
   "injectors": {
     "defaultRequire": 1

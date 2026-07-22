@@ -86,6 +86,7 @@ public final class PokemonWikiIndex {
                     if (drops == null) drops = root.get("dropTable");
                     if (drops == null) drops = root.get("loot");
                     collectDropJson(drops, info.drops);
+                    collectEvolutionJson(root, info.evolutions);
                 } catch (Exception ignored) {}
             }
         } catch (Exception e) {
@@ -95,7 +96,7 @@ public final class PokemonWikiIndex {
 
     public static Info get(String species) { return INFO.get(normal(species)); }
     public static Set<String> speciesSuggestions() { return Collections.unmodifiableSet(SPECIES); }
-    public static Set<String> topicSuggestions() { return Set.of("biome", "time", "ability", "type", "level", "rarity", "block", "structure", "weather", "egg_moves", "drops"); }
+    public static Set<String> topicSuggestions() { return Set.of("biome", "time", "ability", "type", "level", "rarity", "block", "structure", "weather", "egg_moves", "drops", "evo", "evolution", "evolutions"); }
 
     public static boolean isBreedableSpecies(String value) {
         Species species = findSpecies(value);
@@ -328,6 +329,129 @@ public final class PokemonWikiIndex {
         return drops.isEmpty() ? "No wild battle drop data found in the loaded Cobblemon data." : String.join("§7, §f", drops);
     }
 
+
+    public static String evolutions(String speciesName) {
+        Info indexed = get(speciesName);
+        if (indexed == null && findSpecies(speciesName) == null) return "I do not know that Pokémon.";
+        if (indexed == null || indexed.evolutions.isEmpty()) return "This Pokémon does not evolve further in the loaded Cobblemon data.";
+        return String.join("§7; §f", indexed.evolutions);
+    }
+
+    private static void collectEvolutionJson(JsonObject speciesRoot, Set<String> out) {
+        if (speciesRoot == null || out == null) return;
+        collectEvolutionContainer(speciesRoot, out);
+        JsonElement forms = speciesRoot.get("forms");
+        if (forms != null && forms.isJsonArray()) {
+            for (JsonElement form : forms.getAsJsonArray()) {
+                if (form != null && form.isJsonObject()) collectEvolutionContainer(form.getAsJsonObject(), out);
+            }
+        }
+    }
+
+    private static void collectEvolutionContainer(JsonObject container, Set<String> out) {
+        JsonElement evolutions = container.get("evolutions");
+        if (evolutions == null || !evolutions.isJsonArray()) return;
+        for (JsonElement element : evolutions.getAsJsonArray()) {
+            if (element == null || !element.isJsonObject()) continue;
+            JsonObject evolution = element.getAsJsonObject();
+            String result = string(evolution, "result");
+            if (result.isBlank()) result = "Unknown Evolution";
+            String method = formatEvolutionMethod(evolution);
+            out.add(prettyPokemonProperties(result) + " — " + method);
+        }
+    }
+
+    private static String formatEvolutionMethod(JsonObject evolution) {
+        List<String> conditions = new ArrayList<>();
+        String variant = string(evolution, "variant").toLowerCase(Locale.ROOT);
+        String context = string(evolution, "requiredContext");
+        switch (variant) {
+            case "item_interact" -> conditions.add(context.isBlank() ? "Use the required evolution item" : "Use " + prettyId(context));
+            case "trade" -> conditions.add(context.isBlank() ? "Trade" : "Trade with " + prettyPokemonProperties(context));
+            case "level_up" -> conditions.add("Level up");
+            default -> conditions.add(variant.isBlank() ? "Special evolution" : prettyId(variant));
+        }
+        JsonElement requirements = evolution.get("requirements");
+        if (requirements != null && requirements.isJsonArray()) {
+            for (JsonElement requirement : requirements.getAsJsonArray()) {
+                if (requirement != null && requirement.isJsonObject()) {
+                    String text = formatEvolutionRequirement(requirement.getAsJsonObject());
+                    if (!text.isBlank()) conditions.add(text);
+                }
+            }
+        }
+        return String.join(", ", conditions);
+    }
+
+    private static String formatEvolutionRequirement(JsonObject requirement) {
+        String variant = string(requirement, "variant").toLowerCase(Locale.ROOT);
+        return switch (variant) {
+            case "level" -> "reach level " + string(requirement, "minLevel");
+            case "held_item" -> "while holding " + prettyId(string(requirement, "itemCondition"));
+            case "time_range" -> "during " + prettyId(string(requirement, "range"));
+            case "friendship" -> "with at least " + string(requirement, "amount") + " friendship";
+            case "has_move" -> "while knowing " + prettyId(string(requirement, "move"));
+            case "has_move_type" -> "while knowing a " + prettyId(string(requirement, "type")) + "-type move";
+            case "use_move" -> "after using " + prettyId(string(requirement, "move")) + " " + string(requirement, "amount") + " times";
+            case "party_member" -> (bool(requirement.get("contains")) ? "with " : "without ") + prettyPokemonProperties(string(requirement, "target")) + " in the party";
+            case "blocks_traveled" -> "after traveling " + string(requirement, "amount") + " blocks together";
+            case "stat_compare" -> prettyId(string(requirement, "highStat")) + " higher than " + prettyId(string(requirement, "lowStat"));
+            case "stat_equal" -> prettyId(string(requirement, "statOne")) + " equal to " + prettyId(string(requirement, "statTwo"));
+            case "moon_phase" -> "during " + prettyId(string(requirement, "moonPhase"));
+            case "defeat" -> "after defeating " + string(requirement, "amount") + " " + prettyPokemonProperties(string(requirement, "target"));
+            case "weather" -> requirement.has("isRaining") ? (bool(requirement.get("isRaining")) ? "while raining" : "while not raining") : "during the required weather";
+            case "advancement" -> "after completing " + prettyId(string(requirement, "requiredAdvancement"));
+            case "properties" -> "with " + prettyPokemonProperties(string(requirement, "target"));
+            case "property_range" -> prettyId(string(requirement, "feature")) + " between " + string(requirement, "range").replace("-", " and ");
+            case "biome" -> formatBiomeRequirement(requirement);
+            case "structure" -> formatStructureRequirement(requirement);
+            default -> formatUnknownEvolutionRequirement(requirement, variant);
+        };
+    }
+
+    private static String formatBiomeRequirement(JsonObject requirement) {
+        String value = string(requirement, "biomeCondition");
+        if (!value.isBlank()) return "in " + prettyBiome(value);
+        if (requirement.has("biomeConditions") && requirement.get("biomeConditions").isJsonArray()) {
+            List<String> values = new ArrayList<>();
+            for (JsonElement e : requirement.getAsJsonArray("biomeConditions")) values.add(prettyBiome(e.getAsString()));
+            return "in " + String.join(" or ", values);
+        }
+        value = string(requirement, "biomeAnticondition");
+        return value.isBlank() ? "in the required biome" : "outside " + prettyBiome(value);
+    }
+
+    private static String formatStructureRequirement(JsonObject requirement) {
+        String value = string(requirement, "structureCondition");
+        if (!value.isBlank()) return "near " + prettyId(value);
+        value = string(requirement, "structureAnticondition");
+        return value.isBlank() ? "at the required structure" : "away from " + prettyId(value);
+    }
+
+    private static String formatUnknownEvolutionRequirement(JsonObject requirement, String variant) {
+        List<String> details = new ArrayList<>();
+        for (Map.Entry<String, JsonElement> entry : requirement.entrySet()) {
+            if (entry.getKey().equals("variant") || entry.getValue().isJsonNull()) continue;
+            details.add(prettyId(entry.getKey()) + " " + prettyId(entry.getValue().getAsString()));
+        }
+        String prefix = variant.isBlank() ? "special condition" : prettyId(variant);
+        return details.isEmpty() ? prefix : prefix + ": " + String.join(", ", details);
+    }
+
+    private static String prettyPokemonProperties(String raw) {
+        if (raw == null || raw.isBlank()) return "Unknown Pokémon";
+        String[] parts = raw.trim().split("\\s+");
+        List<String> values = new ArrayList<>();
+        values.add(prettyId(parts[0]));
+        for (int i = 1; i < parts.length; i++) {
+            String part = parts[i];
+            int eq = part.indexOf('=');
+            if (eq > 0) values.add(prettyId(part.substring(0, eq)) + " " + prettyId(part.substring(eq + 1)));
+            else values.add(prettyId(part));
+        }
+        return String.join(" ", values);
+    }
+
     public static Species findSpecies(String speciesName) {
         if (speciesName == null || speciesName.isBlank()) return null;
         String cleaned = speciesName.trim().toLowerCase(Locale.ROOT).replace('_', '-');
@@ -493,6 +617,14 @@ public final class PokemonWikiIndex {
     private static String prettyBiome(String raw) {
         String v = raw == null ? "" : raw.replace("#", "").trim();
         String normalized = v.toLowerCase(Locale.ROOT);
+        String registryValue = normalized.startsWith("#") ? normalized.substring(1) : normalized;
+        int namespaceSeparator = registryValue.indexOf(':');
+        if (namespaceSeparator > 0) {
+            String namespace = registryValue.substring(0, namespaceSeparator);
+            // The server wiki must only advertise biome data supplied by Minecraft or Cobblemon.
+            // Spawn packs sometimes contain compatibility entries for absent dimension mods such as Aether.
+            if (!namespace.equals("minecraft") && !namespace.equals("cobblemon") && !namespace.equals("c")) return "";
+        }
         if (normalized.equals("overworld")
                 || normalized.equals("minecraft:overworld")
                 || normalized.equals("cobblemon:is_overworld")
@@ -697,6 +829,7 @@ public final class PokemonWikiIndex {
         public final Set<String> extra = new TreeSet<>();
         public final Set<String> sources = new TreeSet<>();
         public final Set<String> drops = new TreeSet<>();
+        public final Set<String> evolutions = new LinkedHashSet<>();
     }
 
     private static final class SupplementalInfo {

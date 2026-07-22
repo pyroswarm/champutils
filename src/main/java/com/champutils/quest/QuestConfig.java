@@ -16,6 +16,8 @@ public class QuestConfig {
     public static Settings SETTINGS = new Settings();
 
     public static class Settings {
+        /** Generated contract reward schema. Custom values above the floors are retained. */
+        public int contractBalanceVersion = 2;
         public int dailyResetHour = 9;
         public int dailyResetMinute = 0;
         public String weeklyResetDay = "MONDAY";
@@ -31,7 +33,7 @@ public class QuestConfig {
         public String dailyCrateCreditId = "f";
         public String weeklyCrateCreditId = "d";
         public int guildWeeklyObjectiveCount = 3;
-        public int guildWeeklyRequiredPlayers = 10;
+        public int guildWeeklyRequiredPlayers = 5;
         public int guildWeeklyCompletionCredits = 2500;
         public List<String> guildWeeklyRewardCommands = new ArrayList<>();
         public List<Template> guildWeeklyTemplates = new ArrayList<>();
@@ -57,6 +59,8 @@ public class QuestConfig {
     public static class ContractTemplate extends Template {
         public int creditCost;
         public int rewardCredits;
+        /** Profession XP paid to the profession named by this contract. */
+        public int rewardProfessionXp;
         public int durationHours;
         public String difficulty;
         /** Minimum Adventurer rank required to buy this contract: F, E, D, C, B, A, S. */
@@ -75,6 +79,7 @@ public class QuestConfig {
                 SETTINGS = loaded == null ? new Settings() : loaded;
             }
             normalize();
+            saveNormalizedConfig(file);
         } catch (Exception e) {
             e.printStackTrace();
             SETTINGS = new Settings();
@@ -88,7 +93,7 @@ public class QuestConfig {
         if (SETTINGS.contractTemplates == null) SETTINGS.contractTemplates = new ArrayList<>();
         if (SETTINGS.guildWeeklyTemplates == null) SETTINGS.guildWeeklyTemplates = new ArrayList<>();
         if (SETTINGS.guildWeeklyRewardCommands == null) SETTINGS.guildWeeklyRewardCommands = new ArrayList<>();
-        if (SETTINGS.guildWeeklyRequiredPlayers <= 0) SETTINGS.guildWeeklyRequiredPlayers = 10;
+        if (SETTINGS.guildWeeklyRequiredPlayers <= 0) SETTINGS.guildWeeklyRequiredPlayers = 5;
         if (SETTINGS.guildWeeklyObjectiveCount <= 0) SETTINGS.guildWeeklyObjectiveCount = 3;
         if (SETTINGS.guildWeeklyRewardCommands.isEmpty()) {
             SETTINGS.guildWeeklyRewardCommands.add("opencrates givekey %player% guild 1");
@@ -98,6 +103,7 @@ public class QuestConfig {
         if (SETTINGS.dailyRewardCommands == null) SETTINGS.dailyRewardCommands = new ArrayList<>();
         if (SETTINGS.weeklyRewardCommands == null) SETTINGS.weeklyRewardCommands = new ArrayList<>();
         ensureStarterContracts(SETTINGS);
+        ensureQuestVariety(SETTINGS);
         for (ContractTemplate c : SETTINGS.contractTemplates) {
             if (c == null) continue;
             if (c.rewardCommands == null) c.rewardCommands = new ArrayList<>();
@@ -106,6 +112,55 @@ public class QuestConfig {
         if (SETTINGS.maxActiveContracts <= 0) SETTINGS.maxActiveContracts = 1;
     }
 
+
+
+    private static void ensureQuestVariety(Settings s) {
+        if (s == null) return;
+        if (s.dailyTemplates == null) s.dailyTemplates = new ArrayList<>();
+        if (s.weeklyTemplates == null) s.weeklyTemplates = new ArrayList<>();
+        if (s.contractTemplates == null) s.contractTemplates = new ArrayList<>();
+
+        addDailyIfMissing(s, "daily_breed_eggs", "Hatch 3 Pokémon eggs", "HATCH_EGG", ProfessionType.BREEDING, "any", 3, 1, 8);
+        addDailyIfMissing(s, "daily_catch_water", "Catch 8 Water-type Pokémon", "CATCH_TYPE", ProfessionType.BATTLING, "water", 8, 1, 8);
+        addDailyIfMissing(s, "daily_catch_fire", "Catch 8 Fire-type Pokémon", "CATCH_TYPE", ProfessionType.BATTLING, "fire", 8, 1, 7);
+        addDailyIfMissing(s, "daily_catch_pikachu", "Catch 2 Pikachu", "CATCH_SPECIES", ProfessionType.BATTLING, "pikachu", 2, 1, 5);
+        addDailyIfMissing(s, "daily_catch_eevee", "Catch 2 Eevee", "CATCH_SPECIES", ProfessionType.BATTLING, "eevee", 2, 1, 5);
+        addDailyIfMissing(s, "daily_trainers_short", "Win 5 NPC trainer battles", "WIN_BATTLE", ProfessionType.BATTLING, "NPC", 5, 1, 10);
+
+        addWeeklyIfMissing(s, "weekly_breed_eggs", "Hatch 18 Pokémon eggs", "HATCH_EGG", ProfessionType.BREEDING, "any", 18, 1, 8);
+        addWeeklyIfMissing(s, "weekly_catch_water", "Catch 50 Water-type Pokémon", "CATCH_TYPE", ProfessionType.BATTLING, "water", 50, 1, 8);
+        addWeeklyIfMissing(s, "weekly_catch_grass", "Catch 50 Grass-type Pokémon", "CATCH_TYPE", ProfessionType.BATTLING, "grass", 50, 1, 7);
+        addWeeklyIfMissing(s, "weekly_catch_specific", "Catch 8 Eevee", "CATCH_SPECIES", ProfessionType.BATTLING, "eevee", 8, 1, 5);
+
+        addContractIfMissing(s, "contract_breeder_start", "Hatch 5 Pokémon eggs", "HATCH_EGG", ProfessionType.BREEDING, "any", 5, 1, 9, 25, 450, 6, "F", "give %player% cobblemon:exp_candy_xs 8");
+        addContractIfMissing(s, "contract_water_catcher", "Catch 15 Water-type Pokémon", "CATCH_TYPE", ProfessionType.BATTLING, "water", 15, 1, 8, 50, 1000, 7, "E", "give %player% cobblemon:dive_ball 8");
+        addContractIfMissing(s, "contract_advanced_breeder", "Hatch 20 Pokémon eggs", "HATCH_EGG", ProfessionType.BREEDING, "any", 20, 15, 6, 125, 6000, 10, "C", "give %player% cobblemon:destiny_knot 1");
+
+        // Keep ordinary trainer objectives session-friendly.
+        for (Template t : s.dailyTemplates) {
+            if (t != null && "WIN_BATTLE".equalsIgnoreCase(t.objectiveType) && "NPC".equalsIgnoreCase(t.target) && t.amount > 8) {
+                t.amount = 8;
+                t.description = "Win 8 NPC trainer battles";
+            }
+        }
+    }
+
+    private static boolean hasTemplate(List<? extends Template> templates, String id) {
+        if (templates == null || id == null) return false;
+        return templates.stream().anyMatch(t -> t != null && id.equalsIgnoreCase(t.id));
+    }
+
+    private static void addDailyIfMissing(Settings s, String id, String description, String type, ProfessionType profession, String target, int amount, int minLevel, int weight) {
+        if (!hasTemplate(s.dailyTemplates, id)) daily(s, id, description, type, profession, target, amount, minLevel, weight);
+    }
+
+    private static void addWeeklyIfMissing(Settings s, String id, String description, String type, ProfessionType profession, String target, int amount, int minLevel, int weight) {
+        if (!hasTemplate(s.weeklyTemplates, id)) weekly(s, id, description, type, profession, target, amount, minLevel, weight);
+    }
+
+    private static void addContractIfMissing(Settings s, String id, String description, String type, ProfessionType profession, String target, int amount, int minLevel, int weight, int cost, int reward, int hours, String difficulty, String... commands) {
+        if (!hasTemplate(s.contractTemplates, id)) contract(s, id, description, type, profession, target, amount, minLevel, weight, cost, reward, hours, difficulty, commands);
+    }
 
     private static void ensureStarterContracts(Settings s) {
         if (s == null) return;
@@ -143,13 +198,13 @@ public class QuestConfig {
             default -> 50;
         };
         int rewardCredits = switch (c.difficulty) {
-            case "E" -> 1000;
-            case "D" -> 2500;
-            case "C" -> 6000;
-            case "B" -> 11000;
-            case "A" -> 20000;
-            case "S" -> 40000;
-            default -> 450;
+            case "E" -> 1_800;
+            case "D" -> 4_500;
+            case "C" -> 10_000;
+            case "B" -> 20_000;
+            case "A" -> 40_000;
+            case "S" -> 80_000;
+            default -> 750;
         };
         int hours = switch (c.difficulty) {
             case "E" -> 7;
@@ -165,7 +220,21 @@ public class QuestConfig {
         // old 24-240h durations are corrected on load before beta.
         c.creditCost = cost;
         c.rewardCredits = Math.max(c.rewardCredits, rewardCredits);
+        c.rewardProfessionXp = Math.max(c.rewardProfessionXp, professionXpForDifficulty(c.difficulty));
         c.durationHours = hours;
+        SETTINGS.contractBalanceVersion = 2;
+    }
+
+    public static int professionXpForDifficulty(String difficulty) {
+        return switch (normalizeDifficulty(difficulty)) {
+            case "E" -> 750;
+            case "D" -> 1_800;
+            case "C" -> 4_000;
+            case "B" -> 8_500;
+            case "A" -> 17_500;
+            case "S" -> 35_000;
+            default -> 300;
+        };
     }
 
     private static String normalizeDifficulty(String difficulty) {
@@ -179,6 +248,14 @@ public class QuestConfig {
     private static String normalizeAdventurerRank(String raw, String difficulty) {
         if (raw == null || raw.isBlank()) return rankForDifficulty(difficulty);
         return com.champutils.rarity.RarityScale.normalize(raw);
+    }
+
+    private static void saveNormalizedConfig(File file) {
+        try (FileWriter writer = new FileWriter(file)) {
+            GSON.toJson(SETTINGS, writer);
+        } catch (Exception e) {
+            System.err.println("[ChampUtils] Could not persist normalized quests.json: " + e.getMessage());
+        }
     }
 
     private static void createDefault(File file) {

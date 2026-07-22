@@ -137,6 +137,15 @@ public final class CobblemonProfileStorageBridge {
     }
 
 
+    public static CompletableFuture<Void> prefetchActiveProfilePcAndAwait(ServerPlayer player) {
+        if (player == null || sqlFactory == null || !PlayerProfileManager.hasActiveProfile(player)) {
+            return CompletableFuture.completedFuture(null);
+        }
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        if (profileId == null) return CompletableFuture.completedFuture(null);
+        return sqlFactory.prefetchPcAndAwait(profileId, player.getUUID(), player.registryAccess());
+    }
+
     public static boolean removePokemonFromCachedStores(UUID profileId, UUID pokemonUuid, Object pokemon) {
         return sqlFactory != null && sqlFactory.removePokemonFromCachedStores(profileId, pokemonUuid, pokemon);
     }
@@ -185,28 +194,31 @@ public final class CobblemonProfileStorageBridge {
 
         // This Cobblemon sync can cost 100ms+ on the server thread. Keep party.sendTo immediate,
         // but do not release the profile-loading quarantine until it finishes.
-        CompletableFuture.runAsync(() -> player.server.execute(() -> {
-            try {
-                if (player.hasDisconnected()) {
-                    done.complete(null);
-                    return;
-                }
-                if (!profileId.equals(PlayerProfileManager.activeProfileId(player))) {
-                    done.complete(null);
-                    return;
-                }
-                // Cobblemon's normal player data sync is needed for client party/summary screens.
-                // The SQL PC factory now returns a lightweight shell on the server thread and
-                // hydrates the real PC asynchronously, so this no longer turns profile activation
-                // into a blocking PC SQL load.
-                safeCobblemonPlayerDataSync(player, profileId, "activation");
-                schedulePartyVerify(player, profileId, 250L, true);
-                schedulePartyVerify(player, profileId, 1_000L, false);
-                done.complete(null);
-            } catch (Throwable t) {
-                done.completeExceptionally(t);
-            }
-        }), CompletableFuture.delayedExecutor(250, TimeUnit.MILLISECONDS));
+        // Hydrate the shared SQL PC before Cobblemon's full player-data sync. Sending that sync
+        // against the lightweight empty shell is what made the destination backend temporarily
+        // replace the client's real PC with an empty one until relog.
+        prefetchActiveProfilePcAndAwait(player).orTimeout(10, TimeUnit.SECONDS).whenComplete((ignored, pcError) ->
+                player.server.execute(() -> {
+                    try {
+                        if (player.hasDisconnected()) {
+                            done.complete(null);
+                            return;
+                        }
+                        if (!profileId.equals(PlayerProfileManager.activeProfileId(player))) {
+                            done.complete(null);
+                            return;
+                        }
+                        if (pcError != null) {
+                            System.err.println("[ChampUtils] PC hydration did not complete before activation sync for profile " + profileId + ": " + pcError.getMessage());
+                        }
+                        safeCobblemonPlayerDataSync(player, profileId, "activation");
+                        schedulePartyVerify(player, profileId, 250L, true);
+                        schedulePartyVerify(player, profileId, 1_000L, false);
+                        done.complete(null);
+                    } catch (Throwable t) {
+                        done.completeExceptionally(t);
+                    }
+                }));
 
         long elapsed = System.currentTimeMillis() - start;
         ChampDebugManager.log(ChampDebugManager.Category.PROFILES, "[PROFILE-TIMING] Cobblemon party activation total took " + elapsed + "ms for " + player.getGameProfile().getName() + " profile=" + profileId);

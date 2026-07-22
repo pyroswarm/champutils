@@ -60,7 +60,10 @@ public final class PokemonHuntConfig {
         if (DATA.settings.refreshHours <= 0.0) DATA.settings.refreshHours = 1.0;
         if (DATA.settings.crateCreditChancePercent < 0) DATA.settings.crateCreditChancePercent = 0;
         if (DATA.settings.crateCreditChancePercent > 100) DATA.settings.crateCreditChancePercent = 100;
-        for (HuntTarget target : DATA.targetPool) sanitizeTarget(target);
+        for (HuntTarget target : DATA.targetPool) {
+            sanitizeTarget(target);
+            addBlazeRodReward(target);
+        }
     }
 
     private static void sanitizeTarget(HuntTarget target) {
@@ -73,6 +76,18 @@ public final class PokemonHuntConfig {
         if (target.weight <= 0) target.weight = 1;
         if (target.rewards.rewardRolls <= 0) target.rewards.rewardRolls = 1;
         target.rewards.credits = creditsForDifficulty(target.difficulty);
+    }
+
+
+    private static void addBlazeRodReward(HuntTarget target) {
+        if (target == null || target.rewards == null) return;
+        String difficulty = normalizeDifficulty(target.difficulty);
+        if (!(difficulty.equals("C") || difficulty.equals("B") || difficulty.equals("A") || difficulty.equals("S"))) return;
+        if (target.rewards.items.stream().anyMatch(item -> item != null && "minecraft:blaze_rod".equals(item.item))) return;
+        int seed = Math.abs((target.species == null ? "hunt" : target.species).hashCode());
+        if (seed % 3 != 0) return; // some, not every, C+ hunt
+        int min = difficulty.equals("C") ? 1 : difficulty.equals("B") ? 2 : difficulty.equals("A") ? 3 : 4;
+        target.rewards.items.add(reward("minecraft:blaze_rod", min, min + 2, 18));
     }
 
     public static long creditsForDifficulty(String difficulty) {

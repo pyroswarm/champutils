@@ -194,10 +194,8 @@ public final class GuildBossManager {
         }
         try { npc.setCustomName(Component.literal(boss.displayName == null ? "Guild Boss" : boss.displayName).withStyle(ChatFormatting.LIGHT_PURPLE)); } catch (Exception ignored) {}
         try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
-        boss.attemptedPlayers.add(playerUuid);
         boss.battlingPlayers.add(playerUuid);
         boss.battleGraceUntilMillis = System.currentTimeMillis() + BOSS_BATTLE_START_GRACE_MILLIS;
-        BossAttemptDatabaseRepository.recordAttempt("guild", boss.id, playerUuid, player.getGameProfile().getName());
         return true;
     }
 
@@ -217,10 +215,8 @@ public final class GuildBossManager {
         }
         try { npc.setCustomName(Component.literal(boss.displayName).withStyle(ChatFormatting.LIGHT_PURPLE)); } catch (Exception ignored) {}
         try { npc.setCustomNameVisible(true); } catch (Exception ignored) {}
-        boss.attemptedPlayers.add(playerUuid);
         boss.battlingPlayers.add(playerUuid);
         boss.battleGraceUntilMillis = System.currentTimeMillis() + BOSS_BATTLE_START_GRACE_MILLIS;
-        BossAttemptDatabaseRepository.recordAttempt("world", boss.id, playerUuid, player.getGameProfile().getName());
         return true;
     }
 
@@ -536,6 +532,32 @@ public final class GuildBossManager {
             return false;
         }
         return false;
+    }
+
+    public static void commitBossBattleStart(ServerPlayer player, UUID npcUuid) {
+        if (player == null || npcUuid == null) return;
+        UUID playerUuid = player.getUUID();
+        ActiveWorldBoss worldBoss = activeWorldBoss;
+        if (worldBoss != null) {
+            for (BossSpawn spawn : worldBoss.spawns) {
+                if (spawn != null && npcUuid.equals(spawn.npcUuid)) {
+                    if (worldBoss.attemptedPlayers.add(playerUuid)) {
+                        BossAttemptDatabaseRepository.recordAttempt("world", worldBoss.id, playerUuid, player.getGameProfile().getName());
+                        com.champutils.adventureguide.AdventureGuideManager.increment(player, "boss_event", 1);
+                    }
+                    return;
+                }
+            }
+        }
+        for (ActiveGuildBoss boss : ACTIVE_GUILD.values()) {
+            if (boss != null && npcUuid.equals(boss.npcUuid)) {
+                if (boss.attemptedPlayers.add(playerUuid)) {
+                    BossAttemptDatabaseRepository.recordAttempt("guild", boss.id, playerUuid, player.getGameProfile().getName());
+                    com.champutils.adventureguide.AdventureGuideManager.increment(player, "boss_event", 1);
+                }
+                return;
+            }
+        }
     }
 
     public static void releaseBossBattleStart(ServerPlayer player, UUID npcUuid) {

@@ -59,6 +59,8 @@ public final class EconomyManager {
     private static final Set<UUID> SQL_LOADED = new HashSet<>();
     private static final Set<UUID> SQL_LOAD_QUEUED = new HashSet<>();
     private static final Map<UUID, CompletableFuture<Void>> MUTATION_TAILS = new ConcurrentHashMap<>();
+    // Guards asynchronous SQL loads from overwriting a newer mutation result.
+    private static final Map<UUID, Long> CACHE_REVISIONS = new ConcurrentHashMap<>();
     private static boolean loaded = false;
 
     private EconomyManager() {
@@ -162,6 +164,17 @@ public final class EconomyManager {
         return account.balance;
     }
 
+
+    private static synchronized void optimisticAdjust(UUID profileId, String username, long delta) {
+        if (profileId == null || delta == 0L) return;
+        ensureLoadedLocked();
+        Account account = getOrCreateLocked(profileId);
+        updateUsername(account, username);
+        account.balance = Math.max(0L, Math.min(MAX_BALANCE, account.balance + delta));
+        account.updatedAt = Instant.now().toString();
+        CACHE_REVISIONS.merge(profileId, 1L, Long::sum);
+    }
+
     public static UUID operationId(String scope, Object... parts) {
         StringBuilder key = new StringBuilder(scope == null ? "economy" : scope.trim().toLowerCase(Locale.ROOT));
         if (parts != null) {
@@ -172,7 +185,10 @@ public final class EconomyManager {
 
     public static CompletableFuture<TransactionResult> depositAsync(ServerPlayer player, long amount, String reason) {
         if (player == null) return CompletableFuture.completedFuture(TransactionResult.fail("Player not found."));
-        return depositAsync(UUID.randomUUID(), PlayerProfileManager.activeProfileId(player), player.getName().getString(), amount, reason);
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        optimisticAdjust(profileId, player.getName().getString(), amount);
+        return depositAsync(UUID.randomUUID(), profileId, player.getName().getString(), amount, reason)
+                .whenComplete((result, error) -> { if (error != null || result == null || !result.success) optimisticAdjust(profileId, player.getName().getString(), -amount); });
     }
 
     public static CompletableFuture<TransactionResult> depositAsync(UUID operationId, ServerPlayer player, long amount, String reason) {
@@ -195,7 +211,13 @@ public final class EconomyManager {
 
     public static CompletableFuture<TransactionResult> withdrawAsync(ServerPlayer player, long amount, String reason) {
         if (player == null) return CompletableFuture.completedFuture(TransactionResult.fail("Player not found."));
-        return withdrawAsync(UUID.randomUUID(), PlayerProfileManager.activeProfileId(player), player.getName().getString(), amount, reason);
+        UUID profileId = PlayerProfileManager.activeProfileId(player);
+        synchronized (EconomyManager.class) {
+            if (getBalance(profileId) < amount) return CompletableFuture.completedFuture(TransactionResult.fail("You do not have enough Credits."));
+            optimisticAdjust(profileId, player.getName().getString(), -amount);
+        }
+        return withdrawAsync(UUID.randomUUID(), profileId, player.getName().getString(), amount, reason)
+                .whenComplete((result, error) -> { if (error != null || result == null || !result.success) optimisticAdjust(profileId, player.getName().getString(), amount); });
     }
 
     public static CompletableFuture<TransactionResult> withdrawAsync(UUID operationId, ServerPlayer player, long amount, String reason) {
@@ -555,12 +577,18 @@ public final class EconomyManager {
         if (playerId == null || SQL_LOADED.contains(playerId) || !SQL_LOAD_QUEUED.add(playerId)) {
             return;
         }
+        long requestedRevision = CACHE_REVISIONS.getOrDefault(playerId, 0L);
         CreditsDatabaseRepository.loadAsync(playerId).whenComplete((snapshot, error) -> {
             synchronized (EconomyManager.class) {
                 SQL_LOAD_QUEUED.remove(playerId);
                 if (error != null) {
                     System.err.println("[ChampUtils] Failed async economy load for " + playerId + ". Using cached/default balance until next refresh.");
                     error.printStackTrace();
+                    return;
+                }
+                // A deposit/withdraw/set may have completed while this query was in flight.
+                // Never let that older snapshot replace the authoritative mutation result.
+                if (CACHE_REVISIONS.getOrDefault(playerId, 0L) != requestedRevision) {
                     return;
                 }
                 SQL_LOADED.add(playerId);
@@ -599,6 +627,7 @@ public final class EconomyManager {
         account.lifetimeEarned = Math.max(0L, sql.lifetimeEarned);
         account.lifetimeSpent = Math.max(0L, sql.lifetimeSpent);
         account.updatedAt = Instant.now().toString();
+        CACHE_REVISIONS.merge(playerId, 1L, Long::sum);
         SQL_LOADED.add(playerId);
         // PostgreSQL is authoritative. Avoid synchronous JSON/ledger disk writes on every mutation;
         // the SQL ledger already contains the durable audit record.
@@ -808,6 +837,7 @@ public final class EconomyManager {
         if (playerId == null) {
             return;
         }
+        CACHE_REVISIONS.merge(playerId, 1L, Long::sum);
         SQL_LOADED.remove(playerId);
         SQL_LOAD_QUEUED.remove(playerId);
         if (DATA != null && DATA.players != null) {

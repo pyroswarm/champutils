@@ -95,7 +95,11 @@ public final class FragmentCraftingMenu {
         addTab(gui, player, 15, "Level Charm", Items.NETHER_STAR, () -> openCraft(player, backTarget, "level_charm", "Level Charm", Items.NETHER_STAR));
         addTab(gui, player, 16, "Rare Pokémon Charm", Items.PRISMARINE_CRYSTALS, () -> openCraft(player, backTarget, "rare_pokemon_charm", "Rare Pokémon Charm", Items.PRISMARINE_CRYSTALS));
         addTab(gui, player, 21, "Chunky Brick", Items.BRICK, () -> openCraft(player, backTarget, "chunky_brick", "Chunky Brick", Items.BRICK));
-        addTab(gui, player, 22, "Trinket Pouch", Items.ENDER_CHEST, () -> openCraft(player, backTarget, "trinket_pouch", "Trinket Pouch", Items.ENDER_CHEST));
+        addTab(gui, player, 22, "Totem of Growth", Items.MOSS_BLOCK, () -> openCraft(player, backTarget, "totem_of_growth", "Totem of Growth", Items.MOSS_BLOCK));
+        addTab(gui, player, 23, "Poke Snax", Items.COOKIE, () -> openCraft(player, backTarget, "poke_snax", "Poke Snax", Items.COOKIE));
+        addTab(gui, player, 24, "Seed Pouch", Items.WHEAT_SEEDS, () -> openCraft(player, backTarget, "seed_pouch", "Seed Pouch", Items.WHEAT_SEEDS));
+        addTab(gui, player, 25, "Incubator", Items.TURTLE_EGG, () -> openCraft(player, backTarget, "incubator", "Incubator", Items.TURTLE_EGG));
+        addTab(gui, player, 26, "Trinket Pouch", Items.ENDER_CHEST, () -> openCraft(player, backTarget, "trinket_pouch", "Trinket Pouch", Items.ENDER_CHEST));
         MenuUtil.addBackButton(gui, 49, () -> openTabs(player, backTarget));
         gui.open();
     }
@@ -178,6 +182,10 @@ public final class FragmentCraftingMenu {
             case "level_charm" -> new Item[]{Items.NETHER_STAR, Items.NETHER_STAR, Items.AMETHYST_SHARD, Items.AMETHYST_SHARD, Items.DRAGON_BREATH, Items.DRAGON_BREATH, Items.DRAGON_EGG};
             case "rare_pokemon_charm" -> new Item[]{Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_CRYSTALS, Items.PRISMARINE_SHARD, Items.PRISMARINE_SHARD, Items.NETHER_STAR, Items.NETHER_STAR, Items.NETHER_STAR};
             case "chunky_brick" -> new Item[]{Items.BRICK, Items.BRICK, Items.NETHER_BRICK, Items.NETHER_BRICK, Items.NETHERITE_SCRAP, Items.NETHERITE_SCRAP, Items.NETHERITE_BLOCK};
+            case "totem_of_growth" -> new Item[]{Items.MOSS_BLOCK, Items.MOSS_BLOCK, Items.FLOWERING_AZALEA, Items.FLOWERING_AZALEA, Items.SPORE_BLOSSOM, Items.SPORE_BLOSSOM, Items.BEACON};
+            case "poke_snax" -> new Item[]{Items.COOKIE, Items.COOKIE, Items.COOKIE, Items.COOKIE, Items.COOKIE, Items.COOKIE, Items.COOKIE};
+            case "seed_pouch" -> new Item[]{Items.WHEAT_SEEDS, Items.WHEAT_SEEDS, Items.PUMPKIN_SEEDS, Items.MELON_SEEDS, Items.BEETROOT_SEEDS, Items.TORCHFLOWER_SEEDS, Items.PITCHER_POD};
+            case "incubator" -> new Item[]{Items.TURTLE_EGG, Items.TURTLE_EGG, Items.TURTLE_EGG, Items.TURTLE_EGG, Items.TURTLE_EGG, Items.TURTLE_EGG, Items.TURTLE_EGG};
             case "trinket_pouch" -> new Item[]{Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST, Items.ENDER_CHEST};
             default -> new Item[]{Items.WOODEN_PICKAXE, Items.STONE_PICKAXE, Items.IRON_PICKAXE, Items.DIAMOND_PICKAXE, Items.NETHERITE_PICKAXE, Items.GOLDEN_PICKAXE, Items.NETHERITE_PICKAXE};
         };
@@ -204,7 +212,7 @@ public final class FragmentCraftingMenu {
                 .addLoreLine(Component.literal("§7Credits: §6" + EconomyManager.formatWholeCredits(creditCost)))
                 .addLoreLine(Component.literal("§7Essence: §e" + available))
                 .addLoreLine(Component.literal("§7Balance: §e" + EconomyManager.format(EconomyManager.getBalance(player))));
-        boolean trinketCraft = toolType.equals("magnet") || toolType.equals("shiny_charm") || toolType.equals("profession_xp_gem") || toolType.equals("pokemon_xp_egg") || toolType.equals("friendship_charm") || toolType.equals("level_charm") || toolType.equals("rare_pokemon_charm") || toolType.equals("chunky_brick") || toolType.equals("trinket_pouch");
+        boolean trinketCraft = toolType.equals("magnet") || toolType.equals("shiny_charm") || toolType.equals("profession_xp_gem") || toolType.equals("pokemon_xp_egg") || toolType.equals("friendship_charm") || toolType.equals("level_charm") || toolType.equals("rare_pokemon_charm") || toolType.equals("chunky_brick") || toolType.equals("totem_of_growth") || toolType.equals("poke_snax") || toolType.equals("seed_pouch") || toolType.equals("incubator") || toolType.equals("trinket_pouch");
         if (trinketCraft) {
             for (Component line : trinketDescription(toolType, normalizedRarity)) builder.addLoreLine(line);
         }
@@ -221,16 +229,16 @@ public final class FragmentCraftingMenu {
         com.champutils.profession.ProfessionTrinketConfig.Tier tier = com.champutils.profession.ProfessionTrinketConfig.tier(rarity);
         switch (toolType) {
             case "magnet" -> {
-                lines.add(Component.literal("§7Effect: pulls eligible drops toward you."));
+                lines.add(Component.literal("§7Effect: pulls eligible item drops toward you."));
                 lines.add(Component.literal("§7Effectiveness: §a+" + fmt(tier.magnetRadiusBonus) + " block radius"));
             }
             case "shiny_charm" -> {
-                lines.add(Component.literal("§7Effect: improves catch/spawn shiny odds."));
-                lines.add(Component.literal("§7Effectiveness: §d+" + fmt(tier.shinyChancePercent) + "% shiny chance"));
+                lines.add(Component.literal("§7Effect: adds a flat shiny roll to catches and nearby wild spawns."));
+                lines.add(Component.literal("§7Extra Shiny Chance: §d+" + fmt(tier.shinyChancePercent) + "%"));
             }
             case "profession_xp_gem" -> {
-                lines.add(Component.literal("§7Effect: can double profession XP."));
-                lines.add(Component.literal("§7Effectiveness: §a" + fmt(tier.professionXpDoubleChancePercent) + "% double XP chance"));
+                lines.add(Component.literal("§7Effect: always increases earned profession XP."));
+                lines.add(Component.literal("§7Profession XP: §a+" + fmt(tier.professionXpDoubleChancePercent) + "%"));
             }
             case "pokemon_xp_egg" -> {
                 lines.add(Component.literal("§7Effect: boosts Pokémon battle XP."));
@@ -241,16 +249,34 @@ public final class FragmentCraftingMenu {
                 lines.add(Component.literal("§7Effectiveness: §d+" + fmt(tier.friendshipBonusPercent) + "% friendship"));
             }
             case "level_charm" -> {
-                lines.add(Component.literal("§7Effect: raises nearby wild spawn minimums."));
+                lines.add(Component.literal("§7Effect: sets nearby wild spawns to a minimum level based on your gym cap."));
                 lines.add(Component.literal("§7Effectiveness: §e" + fmt(tier.levelCharmGymCapPercent) + "% of gym cap"));
             }
             case "rare_pokemon_charm" -> {
                 lines.add(Component.literal("§7Effect: boosts rare non-special wild spawns."));
-                lines.add(Component.literal("§7Effectiveness: §6+" + fmt(tier.rarePokemonSpawnBonusPercent) + "% rare weight"));
+                lines.add(Component.literal("§7Relative Rare Spawn Weight: §6+" + fmt(tier.rarePokemonSpawnBonusPercent) + "%"));
             }
             case "chunky_brick" -> {
                 lines.add(Component.literal("§7Effect: boosts profession chunk odds."));
-                lines.add(Component.literal("§7Effectiveness: §6+" + fmt(tier.chunkChanceBonusPercent) + "% chunk odds"));
+                lines.add(Component.literal("§7Relative Chunk Odds: §6+" + fmt(tier.chunkChanceBonusPercent) + "%"));
+            }
+            case "totem_of_growth" -> {
+                lines.add(Component.literal("§7Effect: accelerates nearby crops, berries, apricorns, and profession plants."));
+                lines.add(Component.literal("§7Radius: §a" + tier.growthRadiusBlocks + " blocks"));
+                lines.add(Component.literal("§7Growth Speed: §a+" + fmt(tier.growthSpeedBonusPercent) + "%"));
+            }
+            case "poke_snax" -> {
+                lines.add(Component.literal("§7Effect: reduces hunger drain from all activities."));
+                lines.add(Component.literal(tier.hungerReductionPercent >= 100.0D ? "§7Effectiveness: §aHunger no longer drops" : "§7Effectiveness: §a-" + fmt(tier.hungerReductionPercent) + "% hunger drain"));
+            }
+            case "seed_pouch" -> {
+                lines.add(Component.literal("§7Effect: copies the planted seed, berry, or mint into nearby valid spots."));
+                lines.add(Component.literal("§7Effectiveness: §aUp to " + tier.seedPouchExtraPlacements + " extra placements"));
+                lines.add(Component.literal("§8Consumes matching items from inventory first, then the Farming backpack; respects claims."));
+            }
+            case "incubator" -> {
+                lines.add(Component.literal("§7Effect: multiplicatively reduces breeding cooldown after profession bonuses."));
+                lines.add(Component.literal("§7Remaining Cooldown: §a-" + fmt(tier.incubatorCooldownReductionPercent) + "%"));
             }
             case "trinket_pouch" -> {
                 lines.add(Component.literal("§7Effect: unlocks/upgrades digital /tpouch storage."));

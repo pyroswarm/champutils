@@ -92,6 +92,11 @@ public final class BreedingConfig {
         v.breedingLevel100ExtraPerfectIvChancePercent = clampPercent(v.breedingLevel100ExtraPerfectIvChancePercent);
         v.breedingLevel100HiddenAbilityBonusPercent = clampPercent(v.breedingLevel100HiddenAbilityBonusPercent);
         v.breedingLevel100ShinyRelativeBonusPercent = clampPercent(v.breedingLevel100ShinyRelativeBonusPercent);
+        v.breedingTypeMasteryXpMultiplier = Math.max(2, Math.min(10, v.breedingTypeMasteryXpMultiplier));
+        v.breedingMasteryLevel100CooldownReductionPercent = clampPercent(v.breedingMasteryLevel100CooldownReductionPercent);
+        v.breedingMasteryLevel100ExtraPerfectIvChancePercent = clampPercent(v.breedingMasteryLevel100ExtraPerfectIvChancePercent);
+        v.breedingMasteryLevel100HiddenAbilityBonusPercent = clampPercent(v.breedingMasteryLevel100HiddenAbilityBonusPercent);
+        v.breedingMasteryLevel100ShinyRelativeBonusPercent = clampPercent(v.breedingMasteryLevel100ShinyRelativeBonusPercent);
         v.hatchXpCommon = Math.max(1, v.hatchXpCommon);
         v.hatchXpUncommon = Math.max(v.hatchXpCommon, v.hatchXpUncommon);
         v.hatchXpRare = Math.max(v.hatchXpUncommon, v.hatchXpRare);
@@ -117,6 +122,7 @@ public final class BreedingConfig {
         weights.put("COPPER", 10.0D);
         weights.put("IRON", 0.0D);
         weights.put("GOLD", 0.0D);
+        weights.put("EMERALD", 0.0D);
         weights.put("DIAMOND", 0.0D);
         weights.put("NETHERITE", 0.0D);
         return weights;
@@ -128,7 +134,8 @@ public final class BreedingConfig {
         weights.put("COPPER", 20.0D);
         weights.put("IRON", 30.0D);
         weights.put("GOLD", 25.0D);
-        weights.put("DIAMOND", 13.0D);
+        weights.put("EMERALD", 18.0D);
+        weights.put("DIAMOND", 11.0D);
         weights.put("NETHERITE", 2.0D);
         return weights;
     }
@@ -167,6 +174,11 @@ public final class BreedingConfig {
         public double breedingLevel100ExtraPerfectIvChancePercent = 2.0D;
         public double breedingLevel100HiddenAbilityBonusPercent = 2.0D;
         public double breedingLevel100ShinyRelativeBonusPercent = 2.0D;
+        public int breedingTypeMasteryXpMultiplier = 2;
+        public double breedingMasteryLevel100CooldownReductionPercent = 10.0D;
+        public double breedingMasteryLevel100ExtraPerfectIvChancePercent = 1.0D;
+        public double breedingMasteryLevel100HiddenAbilityBonusPercent = 0.5D;
+        public double breedingMasteryLevel100ShinyRelativeBonusPercent = 0.5D;
         public int hatchXpCommon = 450;
         public int hatchXpUncommon = 650;
         public int hatchXpRare = 850;

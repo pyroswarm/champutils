@@ -16,6 +16,7 @@ public enum BuffType {
     FARMING_XP("Farming Profession XP", "Increases Farming profession XP earned from legitimate gameplay.", ChatFormatting.YELLOW, ProfessionType.FARMING),
     BATTLING_XP("Battling Profession XP", "Increases Battling profession XP earned from legitimate gameplay.", ChatFormatting.RED, ProfessionType.BATTLING),
     POKEMON_XP("Pokemon XP", "Increases Pokemon battle experience earned by a relative percent.", ChatFormatting.AQUA, null),
+    CHUNK_CHANCE("Chunk Chance", "Increases legitimate profession chunk drop odds by a relative percent.", ChatFormatting.GOLD, null),
 
     SHINY_CHANCE("Shiny Chance Boost", "Adds a percentage of the base shiny chance for legitimate wild spawns/catches. Multiple boosts stack additively from base.", ChatFormatting.LIGHT_PURPLE, null),
     CATCH_CHANCE("Catch Chance", "Chance for a legitimate wild Poké Ball attempt to become a guaranteed catch.", ChatFormatting.GREEN, null),

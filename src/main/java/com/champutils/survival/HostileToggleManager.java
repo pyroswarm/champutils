@@ -14,6 +14,8 @@ import net.minecraft.world.item.Items;
 import com.champutils.menu.ConfirmationMenu;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Blocks;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -63,7 +65,21 @@ public final class HostileToggleManager {
 
     private static void removeIfBlocked(net.minecraft.world.entity.Entity entity, net.minecraft.server.level.ServerLevel world) {
         if (!(entity instanceof Mob)) return;
+        // Trial Chamber spawners are encounter mechanics, not ambient hostile spawning.
+        // Trial-spawned mobs do not expose a stable public spawn-reason API in 1.21.1,
+        // so identify them at entity load by the nearby trial spawner that created them,
+        // then permanently tag them before hostile-protection cleanup runs.
+        if (entity.getTags().contains("champutils_allow_hostile_toggle")) return;
         try { if (entity.getType().getCategory() != MobCategory.MONSTER) return; } catch (Throwable ignored) { return; }
+        // Cache the proximity decision on the entity so the five-tick cleanup loop never
+        // performs a block-volume scan repeatedly for the same ordinary hostile mob.
+        if (!entity.getTags().contains("champutils_trial_spawner_checked")) {
+            entity.addTag("champutils_trial_spawner_checked");
+            if (isNearTrialSpawner(entity, world)) {
+                entity.addTag("champutils_allow_hostile_toggle");
+                return;
+            }
+        }
         for (ServerPlayer player : world.players()) {
             if (!Boolean.TRUE.equals(DISABLED.get(player.getUUID()))) continue;
             if (player.distanceToSqr(entity) <= RADIUS_SQ) {
@@ -71,6 +87,27 @@ public final class HostileToggleManager {
                 return;
             }
         }
+    }
+
+    /**
+     * Vanilla trial spawners create mobs within a small radius of the block. Scanning an
+     * 8x6x8 box only when an untagged hostile entity loads/enters cleanup keeps this cheap
+     * while avoiding exemptions for ordinary hostile mobs elsewhere in the world.
+     */
+    private static boolean isNearTrialSpawner(net.minecraft.world.entity.Entity entity, ServerLevel world) {
+        BlockPos origin = entity.blockPosition();
+        final int horizontalRadius = 8;
+        final int verticalRadius = 6;
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int y = -verticalRadius; y <= verticalRadius; y++) {
+            for (int x = -horizontalRadius; x <= horizontalRadius; x++) {
+                for (int z = -horizontalRadius; z <= horizontalRadius; z++) {
+                    cursor.set(origin.getX() + x, origin.getY() + y, origin.getZ() + z);
+                    if (world.getBlockState(cursor).is(Blocks.TRIAL_SPAWNER)) return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static int requestToggle(ServerPlayer player) {
